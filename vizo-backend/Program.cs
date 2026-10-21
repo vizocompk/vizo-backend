@@ -119,6 +119,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
            and only for the hub paths -- a token in a query string is a token in
            the server log, and that is a trade worth making for one endpoint
            rather than for the whole API. */
+
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
@@ -132,6 +133,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 return Task.CompletedTask;
             }
         };
+
     });
 
 /* ───────────────────────── Authorization ───────────────────────── */
