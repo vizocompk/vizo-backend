@@ -1,0 +1,948 @@
+═══════════════════════════════════════════════════════════════════════════════
+ CHANGA  —  what YOU have to change, by hand, outside the code
+═══════════════════════════════════════════════════════════════════════════════
+
+ Updated 27 September with the three parallel sessions of 26 September
+ (section G, FIRST -- it has the deploy order). Before that, section F: the Order Department's
+ Packing screen and the loss of Claims. E is the warehouse role and panel
+ deleted and purchase returns removed; D is Railway, the Gemini free-tier
+ limit and two earlier live-data changes; C is the order-chain and
+ new-customer work, B is 21 September, A is 20 September and
+ 1-4 are 17 September. All of them still stand.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ G.  26 SEPTEMBER — PURCHASES, LEDGERS, DAY EXPENSES: HOW TO PUT THEM LIVE
+───────────────────────────────────────────────────────────────────────────────
+
+ DONE 27 SEP (13:46-13:50): G1-G4 are finished. The code is on master and main
+ (Talha merged the backend; the frontend was merged and pushed as AmmarKamran2005).
+ Migrations 26 (both sections), 30-33, 35 (twice), 36-39 and 41 were run on live
+ Neon after a rehearsal on a restored copy of the same backup. Checked afterwards:
+ stock lots = shelves, no expense without a sheet, and the books balance (0.00).
+ The live sign-in no longer fails on "MustChangePassword". Backup taken just
+ before: D:\Main\advpos-testdb\LIVE-BACKUP-before-migrations-2026-09-27_1346.dump
+ (restore it with pg_restore --clean if anything has to be undone).
+ STILL TO DO BY YOU: G5 onwards.
+
+ Everything from 26 September is on the branch integration/2026-09-26 in BOTH
+ repositories (and on feat/a-purchases, feat/b-ledgers, feat/c-expenses). It
+ is NOT on main / master: merging it there deploys it, and the live database
+ needs its migrations first. Do these in this order, all on the same day.
+
+ G1  TAKE A NEON SNAPSHOT (Neon console -> Branches -> Create branch / restore
+     point). Six migrations change the books and the stock.
+
+ G2  RUN ON LIVE, BEFORE THE DEPLOY, in this order (backend/database/):
+       26_purchase_pricing_and_batches.sql   -- SECTION 1 only (the top part);
+                                               it aborts by itself if the stock
+                                               lots and the shelves disagree
+       30_ledger_accounts.sql
+       31_staff_ledgers.sql                  -- the new API FAILS without it
+       32_ledger_entry_items.sql
+       33_order_desk_no_money.sql
+       35_expense_sheets.sql                 -- first run
+       36_collection_series.sql              -- (27 Sep) the COL numbering for
+                                               collections made on Confirm
+                                               Collections
+       37_must_change_password.sql           -- (27 Sep, E1) the new API FAILS
+       38_backup_files.sql                      without these two; 38 deletes
+                                               the 5 fake BackupHistory rows
+       39_visits_and_delivery_confirmation.sql -- (27 Sep, E2) Delivery and
+                                               Visits answer 500 without it
+       41_bank_statement_import.sql          -- (27 Sep, E3) additive
+     Each is safe to run twice. None of them breaks the OLD API still running.
+
+ G3  DEPLOY: merge integration/2026-09-26 into master (backend) and main
+     (frontend) and push -- API first, then the website. Or tell Claude "merge
+     and push integration" and it will, as AmmarKamran2005.
+
+ G4  RUN ON LIVE, AFTER THE DEPLOY:
+       26_purchase_pricing_and_batches.sql   -- SECTION 2 (the three DROP
+                                               COLUMN lines at the bottom)
+       35_expense_sheets.sql                 -- second run: files any expense
+                                               the old API wrote in between
+
+ G5  EVERYONE SIGNS OUT AND BACK IN. The accountant loses Purchases and the
+     order desk loses money from their menus; both ride in the 8-hour token.
+
+ G6  AS SUPER ADMIN: Money -> Customer Ledgers -> "Post them now" (once). It
+     posts the 27 old invoices and 5 returns that never reached the books
+     (PKR 446,755.69). Then open the Balance Sheet: it must still balance (the
+     Trial Balance screen was removed on 27 Sep at the owner's request).
+     Customer balances go UP by what was billed, so some shops will now be
+     over their limit (on the copy: Mobile Zone Lahore 396,749 vs 200,000).
+
+ G7  Purchases -> Logistics Companies: add the companies you pay duty to.
+
+ G8  Staff Ledgers: set each person's monthly salary, then "Salary run" per
+     month. Drivers/helpers without a login can be added there.
+
+ G9  Account List: give 1113 Faysal Bank its real opening balance, if it had one.
+
+ G10 Two old expenses need a click (session C found them):
+       - EXS-26-0009 (2 Sep, SSGC PKR 7,800): its journal entry was reversed on
+         15 Sep but the expense still reads Posted -> open the sheet, press
+         Reverse (no new entry is written; it only marks the day reversed).
+       - EXP-26-0026 (30 Aug, PKR 4,500, draft) is booked to Owner Capital ->
+         open sheet EXS-26-0007 and pick a real expense head before approving.
+
+ G11 When the old-system (FoxPro) customer file is ready: Customer Ledgers ->
+     Import -> download the template, fill it, upload, check the preview, import.
+
+ G14 (2 Oct) BEFORE THE NEXT API DEPLOY run on live:
+       43_collection_deposit_account.sql
+     (adds "Collection"."DepositAccountId"; the new Collect modal writes it).
+     After the deploy, as Super Admin: Setup -> Couriers. Open every courier in
+     "No parent category" or marked "Also under ..." and pick its ONE category
+     (Karachi own team / Online / Local cargo / Heavy logistics). On the copy:
+     courier 8 (Pak International Cargo) was under both Local cargo and Heavy
+     logistics. The dispatch form lists a courier only under its category.
+
+ G13 (30 Sep) DONE 30 Sep 15:11 on live Neon, after a backup
+     (D:\Main\advpos-testdb\LIVE-BACKUP-before-migration42-2026-09-30_1511.dump)
+     and a rehearsal on a restore of it. It was:
+       42_accountant_approves_and_seen_markers.sql
+     It gives the accountant orders.approve, creates UserSeenMarker (the sidebar
+     badges) and adds SalesOrderItem.BasePrice. Without it the API's badge,
+     order-create and order-detail calls fail. Safe to run twice. Everyone signs
+     out and back in afterwards (the accountant's new right rides in the token).
+
+ G12 (27 Sep, rounds D/E -- details at the top of NOTES-d/e1/e2/e3.md)
+       - STAFF PASSWORDS: 7 of 11 staff still sign in with Vizo@1234, the other
+         4 with the seed passwords. Set a temporary password per person
+         (Setup -> Users -> Password), or force everyone to choose a new one at
+         next sign-in with the SQL in NOTES-e1.md item 1.
+       - After deploy: Setup -> Users -> (another admin) -> Password -> "Email a
+         reset code" once, to prove the Gmail app password still works.
+       - Karachi own-team deliveries can only be confirmed by the Super Admin
+         (the channel names the sales rep, who has no Delivery screen). Either
+         make the order desk its confirmer at /admin/couriers, or ask for a
+         "delivered" button for reps.
+       - DLV-26-0220 carries COD 58,648 against a 2,183.05 invoice (ORD-26-0162):
+         cancel and re-book it, or correct it in the database.
+       - People -> Customers: customers assigned to Bilal Ahmed (Order Dept) and
+         Hassan Raza (Accountant) should move to real salespeople; reminders go
+         to whoever is assigned.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ D.  21 SEPTEMBER, LATER — RAILWAY, THE FREE-TIER LIMIT, AND WHAT IS ALREADY DONE
+───────────────────────────────────────────────────────────────────────────────
+
+ D1  RAILWAY: ONE NEW VARIABLE, AND NOTHING ELSE
+
+     You asked which credentials still have to be added on Railway. It is ONE:
+
+         Gemini__ApiKey      the Google AI Studio key
+
+     I checked, rather than assumed: the committed appsettings.json has exactly
+     one blank value, Gemini:ApiKey. Everything else the API reads -- the Neon
+     connection string, the JWT key, both Cloudinary accounts, the Gmail login,
+     the VAPID push keys -- is already in that file and travels with the code, so
+     Railway needs nothing more for them. (You already set App__WebBaseUrl.)
+
+     Vercel (the website) needs NO new variables.
+
+     Set it at Railway -> your API service -> Variables -> New Variable. The
+     double underscore is ASP.NET's way of writing Gemini:ApiKey. Redeploy after.
+
+     IF YOU DO NOT, nothing breaks. The customer screen still takes and saves the
+     photographs and the salesperson types the details in; the AI reports show
+     their figures and simply leave the written explanation off.
+
+     A NOTE ON "I HAVE PASTED THE KEY HERE". No key arrived with your message --
+     the text stopped at "Also, I have pasted Gemini key here". I used the key you
+     sent before, which is still in backend/vizo-backend/appsettings.Development.json
+     on this machine (gitignored, never pushed). If you meant a NEW key, put that
+     one in that file and on Railway instead.
+
+ D2  THE FREE KEY RUNS OUT, AND THIS IS THE ONE THING I WOULD DO SOMETHING ABOUT
+
+     While testing, the AI stopped answering half way through and Google said:
+
+         429  "You exceeded your current quota ...
+              generate_content_free_tier_requests, limit: 20"
+
+     A free key gets about TWENTY requests a day PER MODEL. This system asks three
+     models in turn (gemini-flash-latest, then two lighter ones), so roughly sixty
+     a day before everything AI goes quiet until the next day. Reading one
+     customer's papers costs one request, an AI report or a question costs one,
+     and the nightly summary one more. For a shop opening a few accounts a day and
+     glancing at a report or two, that is enough. On a day of testing, or a busy
+     one, it is not.
+
+     THE FIX IS NOT CODE: in Google AI Studio, attach a billing account to the
+     project ("Set up billing"). The same key then has paid limits, which are
+     far higher, and at this volume the cost is small.
+     A paid key is also excluded from Google using the photographs to train its
+     models, which the free tier is not.
+
+     WHAT THE APP DOES WHEN IT HITS THE LIMIT: it moves to the next model at once,
+     and if all three are spent it says "the reader did not answer, type it in".
+     Before today it did not even do that for the AI REPORTS -- see convey.txt.
+
+ D3  TWO DATABASE CHANGES ARE ALREADY MADE (migration 23, run on Neon)
+
+     You asked for them and they are done, with the figures to undo them in
+     23_undo_values.txt. Said plainly because they are changes to the live data:
+
+       ORDER DEPARTMENT LOST three rights: products.manage, purchases.view and
+       receipts.stock. It KEEPS stock.view, stock.transfer and stock.correct. A new
+       right, products.view ("See items"), was created and given to the Super Admin,
+       the Accountant and the Warehouse Keeper -- so nobody but the order desk
+       loses Items.
+
+       SALES TAX IS 0% ON EVERY PRODUCT. There was never a setting: each product
+       carries its own rate and every screen starts from it. 36 products were at
+       18% and TWO WERE AT 10%. I set all 38 to 0, reading "sales tax must be 0%"
+       as meaning all of it. If the two at 10% were meant to stay, they are in
+       23_undo_values.txt by product id.
+
+       Orders and invoices already issued keep the rate they were made at. Only
+       what NEW documents start at has changed.
+
+     NOBODY HAS TO SIGN OUT AND IN. The menu reads rights from the database on
+     every page load, and the API refuses the order desk by role. I tested it with
+     sign-in tokens minted BEFORE the change.
+
+ D4  WHAT THE ORDER DESK SEES NOW
+
+     Menu: Stock in Hand, Transfers, Stock Correction, Stock History -- and no
+     Items, Categories, Brands, or Purchases at all (and no Suppliers, which
+     shows what has been bought). Typing any of those addresses goes to
+     "Forbidden", and the API answers 403 to every call, including creating.
+
+     In Stock in Hand and the transfer and correction records, a product's name
+     used to be a link to its Item screen. For the order desk it now goes to that
+     product's STOCK HISTORY instead, which is what they were looking for and is
+     a page they may open.
+
+     ONE SIDE EFFECT YOU SHOULD KNOW ABOUT: the Accountant and the Warehouse Keeper
+     can no longer open Categories and Brands by typing the address. Their menus
+     never showed them, and creating or changing one needs products.manage, which
+     only you hold. Nothing they could see has changed.
+
+ D5  THE SALESPERSON'S RATE AND MARGIN (revised the same day)
+
+     The order screen now works like this, as you described it:
+
+       RATE       fills itself with the selling price YOU set on the product, and
+                  cannot be edited.
+       MARGIN (in Rs.)  is added on top of the rate.
+       MARGIN %   is a percentage OF THE RATE: at Rs. 100, 10% adds Rs. 10.
+       FINAL PRICE  is shown under each line as "PKR 1,078 / piece" (rate + margin).
+
+     The two margin boxes follow each other, and the rate never moves -- typing a
+     margin used to re-work the rate from the landed cost, which is what made the
+     numbers jump. Example on the live data: the T9 earbuds sell at 980; 10% adds
+     98, so the piece is 1,078; Rs. 50 shows 5.1% and 1,030.
+
+     A salesperson can add at most 10% and cannot go below the rate. Typing more
+     pulls it back to 10% with a red note, and the API refuses any rate outside
+     980 to 1,078 for that item. The Accountant (editing at Invoiced/Edit) and you
+     are not held to it. An item with NO selling price on file has nothing to take
+     a percentage of and is not limited.
+
+     THIS REPLACES the first version, which started at the landed cost. It means
+     the salesperson's price is now anchored to the price YOU keep on each product,
+     so that price has to be right. Two things to know: the picker and the line show
+     that price, and a product whose price is below its own landed cost shows a red
+     "fixed rate is below what this piece cost to land" so you can spot it.
+
+ D6  PICTURES: ONLY 3 OF YOUR 36 ACTIVE PRODUCTS HAVE ONE
+
+     Every product dropdown in the project now shows the picture large (about 110
+     to 145 pixels, was 40 to 48), and tapping one elsewhere in the app enlarges
+     it. But 33 products have no picture, so most rows show a grey placeholder.
+     Add them at Items -> the product -> Edit -> Image. The screen will not look
+     the way you are imagining until they are in.
+
+ D7  A PUSH NOTIFICATION MAY HAVE REACHED YOU FROM ME
+
+     To test the new-customer screen end to end I created one customer through the
+     real screen, signed in as Sara Khan. The system did what it does for a new
+     account and sent "Account opened by Sara" to you (Umer Memon) and to the AdvPOS System account.
+     The customer, its pictures and its PDF are all deleted, and I deleted the two
+     in-app notifications, but a push that had already gone to a phone cannot be
+     recalled. If somebody asks about "VZ-C-0018", that is what it was.
+
+───────────────────────────────────────────────────────────────────────────────
+ E.  22 SEPTEMBER, LATER — THE WAREHOUSE ROLE IS GONE; PURCHASE RETURNS TOO
+───────────────────────────────────────────────────────────────────────────────
+
+ E1  THE WAREHOUSE ROLE AND ITS PANEL ARE DELETED — WAREHOUSES STAY AS PLACES
+
+     Your words: "completely delete role of Warehouse and all pages of
+     warehouse panel ... however warehouse would be used as a location for
+     transfers and stock will keep at warehouse so that data will remain in
+     system."
+
+     Done, and the two halves of that sentence are kept exactly separate:
+
+       GONE   the role "Warehouse Keeper" -- nobody can sign in as one, the
+              login screen no longer offers it, /warehouse answers "Forbidden"
+              to everyone, and the picking-list API behind it is deleted.
+
+       KEPT   "Karachi Warehouse" and "Lahore Warehouse" as LOCATIONS. Every
+              stock row, every past transfer, every past movement against them
+              is untouched. A transfer can still move goods to or from a
+              warehouse; dispatch can still send stock out of one. This was
+              never in question -- the role and the place are two different
+              things this system happened to spell the same way, and only one
+              of them was asked to go.
+
+     ONE ACCOUNT HELD THE ROLE: muhammadtalhabinsuhail@gmail.com (Talha) --
+     his own account for testing the role, not a real warehouse worker's. It is
+     now ORDER DEPARTMENT, at Karachi Order Department, because the order desk
+     is the role that already does the physical stock work in this chain
+     (Invoiced -> Processing in Order Dept -> Dispatched). If that is not where
+     you want him, Setup > Users changes it in two clicks -- nothing about the
+     removal depends on that particular choice.
+
+     NOBODY ELSE HAS TO SIGN OUT AND IN. Checked with a warehouse-keeper token
+     minted before the change: it is refused everywhere the role used to reach,
+     because the role name itself is gone from every check, not merely hidden
+     from a menu.
+
+ E2  PURCHASE RETURNS ARE REMOVED; SALES RETURNS ARE NOT
+
+     Your words: "completely remove purchase return scenario in the system
+     however sales return will remain exists in the system."
+
+     The screen, its "New return" button and the three API endpoints behind
+     them (list, one return, create) are gone. Sales Returns is untouched --
+     different menu, different controller, different rule (accountant and
+     Super Admin only), never went near this change.
+
+     WHAT WAS *NOT* TOUCHED, ON PURPOSE: nine real purchase returns already
+     exist in the database, the earliest from 28 April 2026, each with its own
+     posting to the ledger. That is accounting history, not test data, and I
+     did not drop it without being asked to -- dropping it would make the
+     ledger disagree with what was actually posted, and the database is
+     read-only by default for exactly this reason. So:
+
+       - the tables PurchaseReturn and PurchaseReturnItem still hold all nine
+       - a product's Stock History still folds them into its ledger correctly
+       - the Document Store can still print or share the PDF of one that
+         already exists
+       - only MAKING A NEW ONE, and the dedicated screen to browse them by
+         name, are gone
+
+     If you want the nine historical rows purged as well, say so plainly and it
+     is a second, separate script -- not something to bundle into a role
+     removal where a mistake is harder to spot.
+
+ E3  VERIFIED
+
+     API, with fresh tokens: the order desk (Talha and a long-standing
+     order-dept account) reaches Stock in Hand, Transfers, Stock Correction,
+     Stock History and is refused on Items, Categories, Brands and every
+     purchases endpoint, exactly as migration 23 already set up. The purchase-
+     return endpoints answer 404 for every role, including you. A token minted
+     as warehouse-keeper before this change is refused everywhere that role
+     used to reach.
+
+     Browser: the login screen shows four panels, not five. Setup > Roles no
+     longer lists Warehouse Keeper and shows Order Department at 4 users, 19
+     permissions (22 minus the three migration 23 already took). The sidebar
+     for every role tested shows no Warehouse item and no Purchase Returns
+     link. /warehouse and /purchases/returns both answer "Forbidden" or "page
+     not found".
+
+     Gate: backend 0 errors; frontend `tsc` clean, `eslint` 0 errors, same 3
+     pre-existing warnings as before (react-hooks/incompatible-library on
+     react-hook-form's watch(), one stale eslint-disable, one unused icon
+     import that predates this session).
+
+
+───────────────────────────────────────────────────────────────────────────────
+ F.  23 SEPTEMBER — THE ORDER DEPARTMENT'S OWN PANEL: PACKING, AND NO CLAIMS
+───────────────────────────────────────────────────────────────────────────────
+
+ F1  SIGNING IN AS THE ORDER DESK NOW OPENS PACKING
+
+     Your words: "Whenever a user with the Order Department role logs in, the
+     first page they should see is the Packing page. This means the Dashboard
+     page should not render post-login."
+
+     Done with one data change, nothing else: "Role"."HomePath" for order-dept
+     is now /packing, and both the login screen and the address bar's own "/"
+     already read that column -- Setup > Roles edits it by hand if you ever
+     want it back. Dashboard itself still exists; it is simply not where
+     signing in lands any more.
+
+ F2  CLAIMS IS GONE FOR THE ORDER DESK
+
+     "remove Claims from it. There is no need for a Claims page in the Order
+     Department panel."
+
+     Taken away on all three layers that could show it to them: the permission
+     (claims.view/receive/settle), the API (ClaimsController now refuses the
+     role outright), and the route guard. The Accountant and you keep it
+     unchanged. The order desk's own dashboard also lost its "Claims still
+     open" card and counter, since there is nothing behind either any more.
+
+ F3  THE PACKING SCREEN ITSELF
+
+     Three dropdowns that narrow each other down, in any direction you fill
+     them in:
+
+       Salesperson   every rep who currently has an order waiting to be
+                     packed -- not a full staff list, which is true every day
+                     and useful on none of them.
+       Customer      narrows to that rep's ready customers. Picked FIRST, it
+                     sets the salesperson above it -- but only when the shop
+                     has a ready order from exactly one rep. Cellular World
+                     KHI, for instance, has orders from two different people
+                     right now, so picking that shop leaves the salesperson
+                     box open rather than guessing which one you meant; the
+                     order list below still shows both.
+       Order         narrows to whichever of the two boxes above is filled in.
+                     Picking one directly sets both boxes above it from the
+                     order's own record. The box itself is large, shows a
+                     picture for each item, the order number, the customer, who
+                     wrote it, how many pieces, and the total -- never a bare
+                     ID.
+
+     Pick an order and its lines appear below: a picture, the name, how many
+     were ordered, and the PRICE -- which is deliberately your own selling
+     price on the item (what you set at Items, never whatever margin a rep
+     added on top). Proved against a real order that had a margin on it: the
+     order itself charged Rs. 3,680 a piece; the Packing screen showed Rs. 980,
+     your own price on that item.
+
+     The quantity is the one thing that can be typed into, and it can only go
+     DOWN from what was ordered -- typing more, or leaving the box blank, is
+     refused, both on the screen and by the API if it is ever asked for
+     directly. Reduce one and it is not a quiet edit:
+
+       - the salesperson, the accountant and you are all told, by name, which
+         item was short and by how much;
+       - the customer's invoice is rebuilt with an extra page appended --
+         "DISPATCH RECORD" -- showing every line's requested and dispatched
+         count and the shortfall, without a single figure on the original bill
+         being touched;
+       - the old copy of that invoice's PDF is removed from Cloudinary once the
+         new one is safely stored, so nothing orphaned is left sitting there.
+
+     Pressing "Next" is the real action -- this is the moment the goods
+     actually leave the shelf, deducting only what was actually sent, never the
+     full amount if it was reduced. Only once that has gone through does the
+     courier step appear: the same channel-and-courier form /dispatch has
+     always used, now reached from here. If booking the courier fails for any
+     reason, the order is already sent -- the screen says so and offers to try
+     booking again, rather than risking sending it twice.
+
+     A new "Delivered" link, next to Delivery, is the same screen pre-filtered
+     to what has already arrived -- one page, not two that could drift apart.
+
+ F4  VERIFIED
+
+     A real order with a genuine margin on it (base Rs. 980, charged Rs.
+     3,680) proved the price shown is yours, not the rep's. A live test order
+     (Sara's customer, 3 pieces) proved the whole chain: asking for more than
+     ordered is refused by the API; sending 2 of 3 deducted exactly 2 from the
+     shelf, recorded DispatchedQty, sent the shortage notice to the
+     salesperson, the accountant and the Super Admin, rebuilt the invoice to 2
+     pages with the dispatch record on the second, destroyed the old PDF from
+     Cloudinary (it now 404s) and kept the new one working; the courier was
+     then booked through the existing endpoint. Everything the test created --
+     the order, its invoice, the delivery, the stock movement, all 46
+     notifications, the new PDF, and the three document-series numbers -- was
+     removed afterwards, and the shelf is back at its original count.
+
+     Browser, as a real order-dept account: signing in and visiting "/" both
+     land on /packing; the sidebar has no Claims link and does have Packing and
+     Delivered; the three dropdowns cascade exactly as above; the quantity box
+     refuses more than was ordered; the screen works at a 375px phone width
+     with no horizontal scroll.
+
+     Gate: backend 0 errors; frontend `tsc` clean, `eslint` 0 errors.
+
+───────────────────────────────────────────────────────────────────────────────
+ C.  22 SEPTEMBER — ONE KEY, TWO MIGRATIONS, AND A WORD TO YOUR ORDER DESK
+───────────────────────────────────────────────────────────────────────────────
+
+ C1  THE READER WORKS — AND THE KEY IS NOT IN THE REPOSITORY
+
+     You gave the key on 22 September and it is in use on this machine, but
+     NOT in appsettings.json with the database password and the Cloudinary
+     secrets. Two reasons, and the second is yours:
+
+         GITHUB REFUSES THE PUSH. Its secret scanning recognises a Google API
+         key and blocks any commit carrying one --
+         "GCP API Key Bound to a Service Account ... appsettings.json".
+
+         AND YOU SAID SO. "why are you trying to push api key on repo,
+         .gitignore plz". Done.
+
+     WHERE IT IS NOW, on this machine:
+
+         backend/vizo-backend/appsettings.Development.json
+
+     That file was in .gitignore already but git was still tracking it -- it
+     had been committed before the ignore rule was written, and git keeps
+     tracking what it already tracks. It is untracked now, so the ignore is
+     real and the file stays on this computer. It holds the logging settings
+     and this:
+
+         "Gemini": { "ApiKey": "AQ.Ab8RN6..." }
+
+     ASP.NET reads appsettings.json first and then this one on top, so the
+     empty ApiKey in the committed file is replaced by the real one whenever
+     the API runs here. Nothing to remember and nothing to type.
+
+     ON THE SERVER there is no such file -- it is not in the repository, which
+     is the point. So set it at Railway -> Variables, the way App__WebBaseUrl
+     already is:
+
+         Gemini__ApiKey = AQ.Ab8RN6...
+
+     The double underscore is ASP.NET's own way of writing Gemini:ApiKey.
+     Until you do, the new-customer screen still takes and saves the
+     photographs, and the salesperson types the details in instead of having
+     them filled. Nothing breaks; it is just slower.
+
+     ONE THING FOR TALHA: appsettings.Development.json will disappear from his
+     working copy on his next pull, because it is no longer in the repository.
+     If he had his own overrides in it he should keep a copy first. convey.txt
+     says the same.
+
+     WHAT WAS PROVED, with your key, through the real screen's API:
+
+       · the CNIC name came back WITHOUT the father's name
+       · the display name came back as
+         "Imran Yousuf Mansoori - MANSOORI COMMUNICATION - Nayabad Market"
+       · the address came off the BUSINESS CARD, not the CNIC
+       · both phone numbers came off the CNIC, in the shapes they were printed
+       · the city was matched to "Karachi - Pakistan"
+       · a deliberately blurred card came back as "That picture is not clear
+         enough to read. Take it again." and the screen went back to it
+
+     It takes about 20-25 seconds for three pictures. That is the model, not
+     the app.
+
+     TWO THINGS TESTING CHANGED:
+
+     1. THE MODEL NAME YOU HAD IS RETIRED. "gemini-2.0-flash" answers 404 now.
+        It is "gemini-flash-latest", the name Google keeps pointing at the
+        current model. Two more are listed as fallbacks, because the flash
+        models answer 503 "high demand" often enough to matter -- if the first
+        is busy the next is tried instead of telling the salesperson to type it
+        all in by hand.
+
+     2. A BLURRED PHOTOGRAPH USED TO BREAK THE SCREEN. The model answered with
+        JSON it had cut off halfway, and the reply came back as a programming
+        error. It now says "take the pictures again in better light, or type
+        the details in", and the pictures are saved either way.
+
+     WHAT GOES TO GOOGLE: the CNIC and business-card photographs of the shop
+     being opened, and nothing else. No prices, no customers, no ledger. On a
+     free key Google may use that data to improve their models; a paid key is
+     excluded. Same key field either way.
+
+     THE AI REPORTS COME ON WITH IT. /reports/ask, the sales-drop explanation,
+     dead-stock advice and the nightly insight all use this key and have been
+     dark since September. They will start writing once the Railway variable
+     is set.
+
+ C2  BOTH MIGRATIONS ARE ALREADY RUN — on Neon only
+
+     backend/database/21_order_chain_and_receiving.sql
+     backend/database/22_customer_documents.sql
+
+     RUN AND VERIFIED on the live database on 22 September, because you said
+     to run them. ANY OTHER ENVIRONMENT needs them before the new API goes up
+     there. Both are safe to run twice.
+
+     What 21 did that people will SEE:
+       · the order chain is seven steps, not ten. "Seen by Warehouse", "On way
+         to Order Dept" and "Packaging" are gone, and "Received at Order Dept"
+         now reads "Processing in Order Dept"
+       · SEVEN LIVE ORDERS that were standing in the removed steps are now at
+         "Processing in Order Dept", each with a line in its own history
+         saying why
+       · money coming in is Cash, Credit, Meezan or Faisal -- everywhere money
+         is received. Nothing was deleted; the old methods still exist for
+         money going out
+       · ORD-26-0171 and INV-26-8893 are deleted, as you asked
+
+     What 22 did: eight columns on "Party" for a customer's six document
+     pictures and the PDF they are bound into. Empty for every existing
+     customer.
+
+ C3  TELL THE ORDER DESK THAT DISPATCH NOW TAKES THE STOCK OFF
+
+     This is the biggest change in the round and the one that will surprise
+     somebody. Pressing Dispatched asks WHICH PLACE the order is going out of
+     and takes the goods off that shelf there and then. If the shelf is short
+     it refuses and names what is missing.
+
+     Two things follow from that:
+
+       · THE PACKING SCREEN IS GONE. It was the only place stock used to leave
+         from, it ran on a status that no longer exists, and two screens
+         taking the same goods off the same shelf is how a count goes wrong.
+       · THE DISPATCH SCREEN NOW COMES AFTER the step instead of before it --
+         it is where the courier, the bilty and the COD are recorded once the
+         goods are on a van.
+
+     WHO CAN DISPATCH: the order department, the accountant and you.
+
+ C4  THE PAST ORDERS ARE STILL WRONG — one script, your word
+
+     26 orders were dispatched or delivered before today without ever moving
+     stock, so every product on them is still counted as being on a shelf. The
+     correction is one script; it changes real shelf counts, so it waits for
+     you. Say the word and I will show you the list before running anything.
+
+ C5  "RECORD PAYMENT" ON AN INVOICE NEVER RECORDED ANYTHING
+
+     Not a change for you to make -- a thing to know. That button produced a
+     form, said "Payment recorded" and wrote nothing at all, to any table, for
+     anybody who ever pressed it. If your accountant has been using it,
+     nothing they entered exists.
+
+     It is off the sales panel now, as you asked, and for the accountant and
+     you it opens the RECEIPT VOUCHER with the customer already chosen --
+     which is the screen that really posts money against their invoices.
+
+     NO ENVIRONMENT VARIABLES CHANGED in this round, apart from the reader key
+     in C1.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ 21 SEPTEMBER — still current
+═══════════════════════════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────────────────────────
+ B.  21 SEPTEMBER — FOUR THINGS, AND THE FIRST ONE IS URGENT
+───────────────────────────────────────────────────────────────────────────────
+
+ B1  ASSIGN YOUR CUSTOMERS TO THE RIGHT SALESMAN — TODAY
+
+     You asked that a salesman only see his own customers in every dropdown,
+     the way his Customers screen already works. That is done. On today's data
+     it means:
+
+         Sara Khan               7 customers
+         Zara Malik              1
+         Imran Iqbal             0      <-- cannot raise an order at all
+         Muhammad AMMAR KAMRAN   0      <-- cannot raise an order at all
+
+     Because the customer box is the first thing on the order form, a rep with
+     an empty list is stuck. Two of your four are in that state.
+
+     WHY: of the 18 shop accounts, 7 are assigned to Sara, 5 are assigned to
+     BILAL AHMED (order department), 4 to HASSAN RAZA (accountant) and 2 to
+     nobody. Nine of them are owned by people who never take an order.
+
+     THE FIX, five minutes, no deploy, no sign-out:
+         People → Customers → open each account → set the SALESMAN to the rep
+         who actually calls on that shop → Save.
+
+     I did not reassign them myself: who calls on which shop is your business,
+     not something the database can be asked.
+
+ B2  THE MIGRATION IS ALREADY RUN — on Neon only
+
+     backend/database/20_places_rights_and_returns.sql
+
+     RUN AND VERIFIED on the live database on 21 September, because you said to
+     run it. ANY OTHER ENVIRONMENT — a colleague's copy, a staging database —
+     needs it before the new API goes up there. Safe to run twice.
+
+     What it did:
+       · deleted the "In Transit" location AND the location type, after moving
+         ORD-26-0158 and INV-26-8878 to Karachi Order Department and removing
+         240 duplicate units of stock (see convey.txt R1 — those 240 were
+         counted twice, once here and once in Shop 2 where they really are)
+       · took invoices.create off the SALES role (they keep invoices.view, so a
+         rep can still print his own bill)
+       · took returns.sales off SALES and off the ORDER DEPARTMENT, leaving it
+         with you and the accountant
+       · made "SalesReturn"."InvoiceId" nullable, so a return can cover several
+         orders
+       · renamed the INVOICED status to "Invoiced/Edit" (the internal key is
+         untouched, so nothing else had to change)
+
+     DEPLOY ORDER: run it BEFORE or WITH the new API build, never long after.
+     The old build copes with all of it.
+
+ B3  EVERYBODY SIGNS OUT AND BACK IN — the same day
+
+     Same reason as migration 18 in September: permissions travel inside the
+     JWT and a token lasts eight hours. Until a salesman signs out and back in,
+     his old token still carries invoices.create and returns.sales, and the
+     API will let him bill an order with it. Signing out fixes it at once;
+     doing nothing fixes it by tomorrow morning.
+
+     NO ENVIRONMENT VARIABLES CHANGED in this round. Nothing to set on the host.
+
+ B4  TELL YOUR ACCOUNTANT THAT BILLING IS THEIRS NOW
+
+     Nobody in sales can press Invoiced any more. If Hassan or Nadia do not
+     know that they are the ones who bill a confirmed order, orders will sit at
+     Confirmed and nobody will be waiting on anything.
+
+     They get a notification on every confirmation ("Waiting for accounts to
+     invoice it"), and the step is called "Invoiced/Edit" because at that
+     moment they may also correct the order — lines, quantities, prices —
+     before the bill is cut. The invoice rebuilds itself to match.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ 20 SEPTEMBER — still current
+═══════════════════════════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────────────────────────
+ A.  PRODUCT WORK, 20 SEPTEMBER — three things
+───────────────────────────────────────────────────────────────────────────────
+
+ A1  DROP THE OPENING COST COLUMN — after the new API is deployed
+
+     You asked for the column to be dropped. Everything that USED it is gone
+     already; the column itself is left for you because of deploy order.
+
+     The API running today selects "OpeningCost" on every product query. If
+     the column disappears while that build is still live, every product
+     screen answers 500 until the new build replaces it. The new build never
+     reads it. So:
+
+        1. deploy the new API (the push of 20 September)
+        2. then run section 2 of
+               backend/database/19_product_pricing.sql
+           which is one line:
+               ALTER TABLE "Product" DROP COLUMN IF EXISTS "OpeningCost";
+
+     Section 1 of that file — the Duty and Margin columns, and every existing
+     product's margin filled in — is ALREADY RUN on Neon. Any other database
+     (a local copy, staging) needs the whole file.
+
+     Dropping a column cannot be undone. The values in it are all copies of
+     the cost price in any case, but take a backup first if in doubt.
+
+ A2  npm install IN THE FRONTEND
+
+     Two new packages, for the barcode camera on phones without a built-in
+     reader (Safari, iPhone, Firefox):
+
+         @zxing/browser   @zxing/library
+
+     They are in package.json; `npm install` in vizo-erp picks them up. The
+     build fails on the import without them. Vercel installs on its own.
+
+ A3  THE CAMERA ONLY WORKS ON HTTPS
+
+     Browsers refuse the camera on a plain http page. The live site is https
+     (Vercel), so nothing to do there — but on a phone pointed at a laptop on
+     the office network (http://192.168…) "Scan barcode" will say the camera is
+     blocked. That is the browser, not the app. Typing a barcode still works
+     everywhere.
+
+     NO ENVIRONMENT VARIABLES CHANGED in this round.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ 17 SEPTEMBER — still current
+═══════════════════════════════════════════════════════════════════════════════
+
+ Nothing in this file is optional if you want that work to run. Everything in
+ it is a setting, a migration or a click — there is no code left to write.
+
+ Read section 1 before you deploy anything. Four things; the first is already
+ done on Neon and the other three are yours. Ten minutes in all.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 1.  DO THESE FOUR, IN THIS ORDER
+───────────────────────────────────────────────────────────────────────────────
+
+ 1.1  THE MIGRATION IS ALREADY RUN — on Neon only
+
+      backend/database/18_sales_scope_returns_and_places.sql
+
+      RUN AND VERIFIED on the live Neon database on 17 September, because you
+      said to run it in full. ANY OTHER ENVIRONMENT — a colleague's local copy,
+      a staging database — still needs it, or the API will 500 on every invoice
+      and party screen. It is safe to run twice.
+
+      What it did that people will SEE the next morning:
+
+        · it renames LOC-01 "Warehouse" to "Karachi Warehouse" and LOC-02
+          "Order Department" to "Karachi Order Department"
+        · it adds "Lahore Warehouse" (LOC-06) and "Lahore Order Department"
+          (LOC-07)
+
+      Rename them, deactivate them or add Faisalabad beside them from
+      Administration → Locations. Nothing in the code knows any location's id
+      or name.
+
+      DEPLOY ORDER STILL MATTERS ELSEWHERE. The migration adds two columns the
+      new code selects on every invoice and every party query —
+      "SalesInvoice"."PdfDeliverable" and "Party"."CreatedByUserId". Wherever
+      it has not been run yet, run it BEFORE the new API goes up.
+
+      It also did three things you cannot see but will feel:
+
+        · grants invoices.view, invoices.create and returns.sales to the Sales
+          role. THIS IS THE FIX for "Could not load invoices and refund
+          methods" and for a salesman who could not print his own bill.
+        · records who opened each customer account (back-filled from the
+          assigned rep, which is the closest true answer that exists).
+        · fills in the primary location of any warehouse or order-desk account
+          that already has exactly one.
+
+
+ 1.2  EVERYBODY SIGNS OUT AND BACK IN — the same day
+
+      Permissions travel INSIDE the JWT, as "perm" claims, and a token lasts
+      eight hours (Jwt:ExpiryMinutes = 480). A salesperson holding a token
+      issued before the migration still carries the old five permissions, and
+      will go on being refused the invoice screen until it expires.
+
+      Signing out and back in fixes it immediately. Doing nothing fixes it by
+      tomorrow morning. There is no server-side way to force it short of
+      rotating Jwt:Key, which would sign everybody out including you.
+
+
+ 1.3  SET THE WEBSITE ADDRESS ON THE API HOST
+
+      New setting, because every notification now carries a real link instead
+      of a bare path like "/sales/orders/42":
+
+          App__WebBaseUrl = https://advpos-frontend.vercel.app
+
+      Set it as an ENVIRONMENT VARIABLE wherever the API runs (Railway →
+      Variables). The double underscore is ASP.NET's own convention for
+      nesting; it overrides the value committed in appsettings.json, which is
+      already set to the same thing as a fallback.
+
+      Change this one line and every notification, every push and every link in
+      the bell follows it. That was the point of asking for it.
+
+      WHY IT MATTERS: a Web Push payload is opened by the service worker with
+      clients.openWindow(). A bare path there resolves against the worker's own
+      scope rather than against your site — it happens to work while the app is
+      the only thing on that origin and stops working the day it is not. And
+      when somebody forwards a notification to a colleague, a path is not a
+      link at all.
+
+      In-app it still behaves as it always did: the bell turns a link back into
+      a path when it points at the site you are already on, so clicking one
+      does not reload the whole application.
+
+
+ 1.4  ADD THE VERCEL ORIGIN TO CORS — probably already done, check anyway
+
+      appsettings.json now lists it:
+
+          "Cors": { "AllowedOrigins": [ ..., "https://advpos-frontend.vercel.app" ] }
+
+      It was NOT there before: the list was localhost:3000, localhost:3000 over
+      https, and www.vizo.com.pk. If the live frontend has been working, then
+      something on the host is already overriding this — check for a
+      Cors__AllowedOrigins__3 variable and make sure the two do not disagree.
+
+      A missing origin fails the browser's pre-flight before any of our code
+      runs, which looks exactly like a broken API and is not one.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 2.  THINGS TO CHECK ONCE, AFTER DEPLOYING
+───────────────────────────────────────────────────────────────────────────────
+
+ 2.1  THE SIX STRANDED ORDERS ARE INVOICED — check the numbers suit you
+
+      Done on your say-so, through the real endpoint rather than by hand, so
+      the numbering, the lines, the PDF, the activity log and the notifications
+      all went the normal way:
+
+          ORD-26-0140  ->  INV-26-8888   dated 10 Aug
+          ORD-26-0141  ->  INV-26-8889   dated 13 Aug
+          ORD-26-0143  ->  INV-26-8890   dated 14 Aug
+          ORD-26-0168  ->  INV-26-8891   dated 15 Sep
+          ORD-26-0170  ->  INV-26-8892   dated 16 Sep
+          ORD-26-0171  ->  INV-26-8893   dated 16 Sep
+
+      THE DATES ARE BETTER THAN I WARNED YOU. I said they would carry today's
+      date; they do not. An invoice raised against an order is dated from the
+      ORDER, so these read as the days the orders were actually taken. Only the
+      numbers came off today's series. All six PDFs are on Cloudinary.
+
+      THE SERIES MOVED from INV-26-8888 to INV-26-8894. If your accountant
+      expects invoice numbers to run in date order, these six do not — they
+      are the highest numbers in the book and among the oldest dates. That is
+      unavoidable once a number is issued late, and it is the only thing about
+      this worth a second look.
+
+      Raising them briefly rewound five order statuses. They are back, each
+      with an ORDER_STATUS_RESTORED row in the activity log, and the line that
+      caused it is fixed. Full account in convey.txt §7A.
+
+      The list should stay empty from now on. The query to check is at the foot
+      of migration 18, and the "Raise invoice" button now appears on any order
+      that has no invoice rather than only on a confirmed one.
+
+ 2.2  TEN INVOICES HAVE NO STORED PDF
+
+      Of 38 sale invoices, 10 have no PdfUrl at all. Nothing is broken — the
+      API renders a bill from the database whenever one is asked for, so Print
+      works on all of them. They simply have no archived copy.
+
+      Opening each one archives it. Or press "Rebuild" on the invoice screen.
+      No hurry.
+
+ 2.3  PDF DELIVERY IS ON, AND THE APP NOW NOTICES
+
+      Cloudinary blocks PDF delivery by default on accounts created since 2023.
+      convey.txt has said for weeks that both of this project's accounts were
+      in that state. CHECKED TODAY, and it is no longer true:
+
+          HEAD .../advpos/documents/invoices/INV-26-8887_u7qavn.pdf → 200 OK
+
+      Somebody has ticked the box. Good — that is the better link to hand out.
+
+      The app used to ignore the question entirely and always open the
+      Cloudinary URL, which is why Print showed an error page during the months
+      the answer was no. It now stores the answer per invoice and uses it. The
+      first time each old bill is opened it spends one HEAD request finding out
+      and writes it down; after that it goes straight to Cloudinary.
+
+      If you ever untick it, nothing breaks — the API serves the bytes itself.
+
+      Six invoices are already flagged deliverable: the six raised above, plus
+      one re-checked while testing. The other 32 flip the first time somebody
+      opens them.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 3.  SETTINGS SUMMARY — every knob this work added or touched
+───────────────────────────────────────────────────────────────────────────────
+
+  SETTING                        WHERE                    VALUE
+  ─────────────────────────────  ───────────────────────  ──────────────────────
+  App:WebBaseUrl                 appsettings.json         https://advpos-frontend.vercel.app
+  App__WebBaseUrl                API host env var         same — overrides above
+  Cors:AllowedOrigins[3]         appsettings.json         https://advpos-frontend.vercel.app
+
+  Nothing was removed. Nothing else in appsettings.json changed. No frontend
+  environment variable changed — vizo-erp/.env.local is untouched and still
+  needs only NEXT_PUBLIC_API_BASE_URL and the VAPID public key.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 4.  STILL UNFIXED, FROM AN OLDER CONVEY — one line, your call
+───────────────────────────────────────────────────────────────────────────────
+
+  vizo-erp/.env.example carries a VAPID public key that does NOT match the
+  server's. .env.local is correct, so push works today; the danger is that
+  anybody setting up a new machine by copying the template gets a browser that
+  subscribes happily and a server that then rejects every send — silently.
+
+  The fix is to copy VapidSettings:PublicKey out of appsettings.json into
+  .env.example. Still not done, because a key is not mine to change and
+  changing the wrong one of the two breaks the setup that works.
+
+═══════════════════════════════════════════════════════════════════════════════

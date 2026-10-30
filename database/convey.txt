@@ -1,0 +1,1991 @@
+═══════════════════════════════════════════════════════════════════════════════
+ CONVEY  —  things you should know, that I did not change on my own
+═══════════════════════════════════════════════════════════════════════════════
+
+ 22 OCTOBER -- found and NOT changed:
+   - "JV entries must not be seen by the accountant": done for vouchers and the
+     Voucher Book. BUT /accounting/journal-entries is still open to the
+     accountant, and every JV the book writes is a journal entry, so the
+     accountant can still read them there (with every system entry -- sales,
+     receipts, expenses). Hiding that page from the accountant is one line in
+     proxy.ts plus the API policy; not done because it takes the whole journal
+     away from them. Say the word.
+   - Payments the accountant records some other way are untouched: Expenses
+     (paid from cash/bank) and supplier payments on purchase invoices still
+     work for the accountant.
+   - The Voucher Book follows the no-past-dates rule (D2): a past date can be
+     viewed but not entered into. The old system clearly back-dated (its
+     screenshot is 14/10 entered later). If the book should allow back-dating,
+     it is one check in table/page.tsx -- the API does not block it.
+   - "Cash" vs "bank" account in a row is guessed from the account NAME
+     ("cash" in it); the chart has no flag. Any Cash & Bank account can be
+     picked by hand.
+   - The JV voucher TYPE ("VoucherType" JV) still posts like a payment
+     (debit Accounts Payable, credit cash). The book does not use it -- its
+     JVs are journal entries -- and only the Super Admin can choose it on the
+     single form now.
+
+ 21 OCTOBER -- found and NOT changed:
+   - 🔴 MOVING AN ORDER BACK FROM DISPATCHED (or Delivered) DOES NOT PUT THE
+     STOCK BACK. SetOrderStatus takes the goods off the shelf on the way INTO
+     Dispatched and never returns them on the way out; dispatching it a second
+     time takes them off again. True for the Super Admin since 22 Sep -- and
+     the accountant can now make the same backward move (owner's request), so
+     it will happen more often. Fix: on leaving DISPATCHED/DELIVERED for an
+     earlier step, put each line's DispatchedQty back on order.LocationId
+     (a RETURN movement through StockBatches) and clear DispatchedQty. Not done
+     because it changes the Super Admin's behaviour too -- say the word.
+   - The Super Admin dashboard's quick Confirm (owner-decisions.tsx) and the
+     credit-hold release still confirm in one press, with no stock table. The
+     API now refuses both when the order department is short, with its message
+     in the toast; only the order page shows the three-place table first.
+   - "Max orderable" (what a rep may still order) = stock at every active
+     selling place (Shop 2 + Warehouse + Order Dept) MINUS what open orders
+     (submitted .. processing, and limit-cross) already hold. Confirm then
+     needs the ORDER DEPARTMENT alone to cover it. So a rep can order stock
+     that sits in the warehouse, and accounts must transfer it to the order
+     department before confirming -- that is the owner's flow as written. Say
+     if the rep's limit should be the order department only.
+   - The order desk keying an order in for a rep is held to the same limit as
+     the rep (the API groups them as it does for the 10% margin cap). The
+     Super Admin and the accountant are not limited.
+   - Two old Wallet Receipt vouchers exist (Easypaisa, JazzCash), so the WR/WP
+     types are left in "VoucherType"; only new ones are refused.
+   - The local Postgres on this machine no longer accepts the password in
+     appsettings.Development.json (scram auth since the Windows change). The
+     21 Oct tests ran on a throwaway server in the session scratchpad instead.
+
+ 2 OCTOBER -- found and NOT changed:
+   - Packing's Dispatch is two calls (status, then booking). If the booking
+     fails the goods have left but no courier is booked; the form says so and
+     Edit (or the Dispatch screen) books it. One server transaction would need
+     SetOrderStatus's stock code moved into a shared service.
+   - The Packing week list drops a dispatched order older than 7 days, so its
+     Edit is then reached by picking it in the three boxes.
+   - The thermal receipt rewrites the finished PDF to an 80 mm page and Courier
+     (PdfCanvas only makes A4 Helvetica). Print on the real printer once.
+   - "Download bill" on the order page still downloads the A4 invoice.
+
+ 30 SEPTEMBER -- found and NOT changed:
+   - /packing/orders/[id] (the read-only order page the Packing list links to)
+     still shows base prices and a "Total at base price" to the order desk.
+   - The Super Admin can still edit a DISPATCHED order; a quantity cut there
+     does not return stock, and DispatchedQty is lost when lines are rewritten.
+   - Lowering an invoiced order's total does not trim receipts already
+     allocated to its invoice (the customer ends up with credit; correct in
+     sum, untidy per invoice).
+   - A customer has no "created by", so the new-customers badge also counts
+     customers the viewer created.
+   - Credit-hold and order-change-request queues were flipped to newest first
+     with the other lists; the Dispatch queue stays by due date. Say if either
+     should go back.
+   - The Packing salesperson box lists sales-role people; an order keyed by the
+     admin or the desk shows its creator only when picked with Pack.
+
+ 27 SEPTEMBER (rounds D, E1, E2, E3 — Confirm Collections, the Account List,
+ printing, sign-in/backups, delivery/visits/reports, the app shell): what was
+ found and not changed is in the "Found, not changed" section of NOTES-d.md,
+ NOTES-e1.md, NOTES-e2.md and NOTES-e3.md (frontend repo root); what YOU must
+ do is changa.txt §G2 + §G12.
+
+ PART 26 SEPTEMBER (first, below) is the newest: purchases, ledgers and day
+ expenses. Before it, last written 22 September 2026, after the order and customer work: the chain
+ cut from ten steps to seven, stock finally coming off the shelf when an order
+ is dispatched, an order screen with pictures and margins, four ways to take
+ money, display names everywhere, and a new customer opened from photographs
+ of the CNIC, the shop card and the affidavit.
+
+ Sections S0-S9 below are that work. R0-R9 after them are 21 September,
+ P0-P11 are 20 September and 1-9 are 17 September. All of it still stands
+ unless a newer section says otherwise.
+
+ WHAT MUST BE DONE BY HAND lives in its own file: changa.txt, beside this one.
+ Read that first and this second.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ PART 26 SEPTEMBER — PURCHASES, LEDGERS, DAY EXPENSES (built in three parallel
+ sessions; full detail in NOTES-a.md, NOTES-b.md, NOTES-c.md at the root of
+ the FRONTEND repository, D:\Main\Sales Softwaer)
+═══════════════════════════════════════════════════════════════════════════════
+
+
+───────────────────────────────────────────────────────────────────────────────
+ T0.  WHAT YOU SHOULD SEE FIRST
+───────────────────────────────────────────────────────────────────────────────
+
+ 1  THE STOCK IS NOW IN THE BOOKS AT ITS FULL SELLING VALUE, AND NOTHING TAKES
+    IT OUT WHEN IT IS SOLD. Each purchase debits Inventory with cost + duty +
+    Fi Sabilillah + Margin 1 + Margin 2 and credits the supplier, the logistics
+    company and three reserves (2160/2161/2162). Sales now post to the books
+    (Dr customer / Cr Sale) but no cost of goods sold is posted -- never was.
+    Example: buy 50 at 1,400 -> Inventory +70,000; sell all 50 -> Inventory
+    still +70,000. The fix is a cost-of-sales entry at dispatch that releases
+    each lot's parts (the lots exist now). Needs your accountant's word on where
+    FS and the margins go once sold.
+
+ 2  THE ACCOUNTANT CAN STILL WORK OUT A COST FROM THE LEDGER. You chose that he
+    keeps the purchase vouchers in the ledger; a goods voucher line reads
+    "Item x 50 @ 1,500.00". Every screen that shows cost is closed to him. If
+    that must go too, the vouchers would post one total instead of a line per item.
+
+ 3  POSTING THE HISTORY RAISES CUSTOMER BALANCES (changa.txt G6). Some shops
+    will be over their credit limit the moment it runs, and their next order
+    will be held for approval.
+
+ 4  DEPLOY ORDER MATTERS (changa.txt G2-G4). Migration 31 before the API or
+    every ledger screen fails; 35 before and after; 26 section 2 only after.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ T1.  JUDGEMENT CALLS (you said "recommended for all"; these are the rest)
+───────────────────────────────────────────────────────────────────────────────
+
+ Purchases (A)
+ - The "overall JV" is a printable sheet of an order's five vouchers, not a
+   sixth posting -- a sixth would count every rupee twice.
+ - Average = quantity-weighted over what is LEFT of each ticked purchase,
+   claim locations not counted; the average sale price is taken whole (10 x
+   1,400 + 50 x 2,000 over 60 = 1,900 exactly) and Margin 1 absorbs rounding or
+   a hand-typed final price, so the five parts always add up.
+ - Lots: oldest first out; a transfer lands the same lots at the other end; a
+   return joins the newest lot; a rejected return takes back from the same
+   lot; a short shelf takes the shortfall from the newest lot (it can go
+   negative, as the shelf itself can). Today's stock is one OPENING lot per
+   product at today's price.
+ - A PO line no longer has tax % (tax is 0 everywhere since 22 Sep); a
+   discount is still allowed.
+ - A logistics company with duty on its account is switched off, never deleted.
+ - Stock in Hand and stock corrections: at cost for the Super Admin, at the
+   selling price for the accountant, no value at all for the order desk.
+ - Claims keep their value at cost for the accountant (his accounting work).
+
+ Ledgers and the order desk (B)
+ - A customer's ledger IS the books: his Accounts Receivable lines plus his
+   opening balance as Balance B/F. One source for statement, trial balance and
+   the credit check.
+ - Staff payables: one account 2140 with a per-person column; drivers/helpers
+   without a login live in their own list and can never sign in.
+ - Undo is always a reversal, never a delete. A cash refund on a return posts
+   only the credit; paying it back is a payment voucher.
+ - Counter-sale cash goes to 1101 Cash on Hand (no per-shop cash account exists).
+
+ Day expenses (C)
+ - A day sheet may be dated in the past (a day is typed up afterwards), never
+   in the future; Claim Stock has no sheet (no cash drawer).
+ - The payment-method column stays (the database requires it); it fills itself
+   from the paid-from account.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ T2.  FOUND AND NOT CHANGED
+───────────────────────────────────────────────────────────────────────────────
+
+ - The order desk still sees ORDER and INVOICE TOTALS (sale values, like the
+   Packing screen); paid, balance and limit are zeroed. Notifications sent to
+   the desk still quote PKR amounts in their text.
+ - A voucher's detail page links each supplier bill to /purchases/invoices/N,
+   which the accountant can no longer open.
+ - System entries (invoice, return, purchase vouchers) can still be edited,
+   deleted or reversed from Journal Entries like any hand-written one; nothing
+   marks them as system-owned. (Session C blocked this for expense sheets only.)
+ - A customer who is also a supplier (VZ-B-0001) shows its supplier-side
+   opening balance (-145,000) on the customer ledger: Party.OpeningBalance is
+   one figure.
+ - Two shelves were negative on 26 Sep (product 13 at -1, product 32 at -975,
+   Karachi Warehouse); their OPENING lots carry the same negatives.
+ - PurchaseOrderStatus (the lookup table) is left in place, unused.
+ - Talha's Models/AppDbContext.cs lost exactly two relationship blocks (the PO
+   status and approved-by columns dropped by migration 26 section 2).
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ PART ZERO — 22 SEPTEMBER: THE ORDER CHAIN, AND OPENING A CUSTOMER
+═══════════════════════════════════════════════════════════════════════════════
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S0.  ONE THING IS WAITING ON YOU
+───────────────────────────────────────────────────────────────────────────────
+
+ 1  ASSIGN YOUR CUSTOMERS TO A SALESMAN. Still open from 21 September and
+    still the most urgent thing in this file: two of your four reps have no
+    accounts assigned and cannot raise an order at all. changa.txt B1.
+
+ (The reader key arrived on 22 September and is in -- see S6 and changa.txt
+ C1. The AI reports came on with it.)
+
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S1.  THE CHAIN IS SEVEN STEPS, AND DISPATCH FINALLY MOVES THE STOCK
+───────────────────────────────────────────────────────────────────────────────
+
+     Draft · Submitted · Confirmed · Invoiced/Edit ·
+     Processing in Order Dept · Dispatched · Delivered
+
+ "Seen by Warehouse", "On way to Order Dept" and "Packaging" are gone from the
+ workflow, from every screen and from the database. So are the two 2026
+ leftovers PROCESSING and PACKED, which were already dead.
+
+ SEVEN LIVE ORDERS WERE STANDING IN THE STEPS THAT WENT -- six at "On way to
+ Order Dept" and one at "Packaging". They are at "Processing in Order Dept"
+ now, and each one has a line in its own history saying the step it was in no
+ longer exists, so nobody finds an order that changed state overnight and
+ cannot explain it.
+
+ AND THE BIG ONE. Until today nothing in the chain ever took stock off a
+ shelf: an order could be invoiced, dispatched and delivered and the shelf
+ count would not have moved by a single piece. That was P0 in this file on
+ 20 September, and it was the largest correctness problem in the system.
+
+ Pressing Dispatched now asks WHICH PLACE the goods are going out of --
+ warehouses, order departments and shops, never Claim Stock -- and takes them
+ off that shelf:
+
+   · it refuses if that place is short, and says which items and by how many
+   · the order's own location is set to the place it really went out of
+   · a SALE movement is written per line, so the stock history explains itself
+   · the order desk, the accountant and you may do it; nobody else
+
+ WHAT THIS DOES NOT DO: the 26 past orders that were dispatched or delivered
+ without ever moving stock are still wrong. Fixing them is a one-off
+ correction script, it is ready to write, and I did not run it because it
+ changes the shelf count of every product on those orders. Say the word.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S2.  THE PACKING SCREEN IS RETIRED, AND DISPATCH MOVED BEHIND THE CHAIN
+───────────────────────────────────────────────────────────────────────────────
+
+ /packing was the pre-chain way of working: its own queue, its own PACKED
+ status, and -- until today -- THE ONLY PLACE IN THE WHOLE APPLICATION WHERE
+ STOCK EVER LEFT for a sale. It sat beside the ten-step chain built on
+ 3 September and the two never met.
+
+ With the stock coming off at Dispatched, two screens taking the same goods
+ off the same shelf is how a count goes wrong, so packing stops: the page, the
+ menu entry and the route are gone, and its API answers with a sentence saying
+ where the work moved to rather than a 404.
+
+ /dispatch now sits AFTER the dispatch step instead of before it. It is where
+ the courier, the bilty, the parcels and the COD are recorded once the goods
+ are on a van; it no longer changes the order's status, because the chain
+ already did.
+
+ THE WAREHOUSE SCREEN IS NOW A LIST, NOT A QUEUE. The keeper's two buttons
+ were the two steps that went. /warehouse still shows every invoiced order
+ with what is on it, what is on the shelf and the bill to check against --
+ which is what the keeper actually needs -- and the order desk moves the order
+ on when it takes it up.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S3.  TAKING AN ORDER: ONE SCREEN, PICTURES, AND A MARGIN
+───────────────────────────────────────────────────────────────────────────────
+
+ The three-step wizard is one page. It stopped asking three things:
+
+   "Selling from"   asked on the day the order was taken, which is before
+                    anybody knows. It is asked at dispatch now (S1).
+   "Sales rep"      a dropdown of everybody. The order is recorded against
+                    whoever is signed in, always -- and the API ignores
+                    anything a browser sends, so it cannot be worked around.
+                    You and the accountant still see whose order it is on the
+                    order itself and in every list.
+   Disc % / Tax %   per line. The rate IS the price agreed; the tax is the
+                    product's own rate and is applied without being asked for.
+
+ IN THEIR PLACE, per line: Qty · RATE · Margin · Margin %.
+
+ Margin and margin % are linked, and both move the rate, because the rate is
+ landed cost plus margin:
+
+     Titan AirPro: cost 720 (cost + duty), rate 1,280 -> margin 560
+     type 50 % -> margin 360, rate 1,080
+     type a margin of 200 -> 27.78 %, rate 920
+     type a rate of 900 -> margin 180, 25 %
+
+ It is the same arithmetic as the product screen, out of the same file, so the
+ two can never tell different stories about one item. A rate below what the
+ piece cost to land turns the line red and is still allowed -- clearance is
+ real.
+
+ AND THE PICTURES. The item picker leads with the photograph and every line on
+ the order carries its own, because that is how an order is actually taken:
+ the rep shows the shopkeeper a picture and the shopkeeper points at it.
+
+ The customer picker shows the DISPLAY name in full, not cut short, because
+ the display name is what tells four Ahmeds apart.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S4.  A CUSTOMER IS CALLED BY THEIR DISPLAY NAME NOW, EVERYWHERE
+───────────────────────────────────────────────────────────────────────────────
+
+ 128 places in the API were handing out the registered name. Orders, invoices,
+ returns, deliveries, claims, statements, reports, the dashboards, the
+ notifications -- all of them now read "display name, or the legal name when
+ there is none".
+
+ TWO PLACES KEEP THE LEGAL NAME, on purpose:
+
+   · the customer's own record, where both are shown -- it is the field you
+     typed, and the screen that edits it must show what it is editing
+   · printed documents, where the counterparty block carries the registered
+     name with the display name above it. A credit note that names a party
+     differently from the invoice it credits is an argument waiting to happen.
+
+ The company's own legal name on the letterhead is untouched -- that is the
+ "Company" table, a different thing entirely.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S5.  MONEY COMING IN: CASH, CREDIT, MEEZAN, FAYSAL
+───────────────────────────────────────────────────────────────────────────────
+
+ Four, everywhere money is received: the counter, the order form, the receipt
+ voucher and the collection dialog. Marked in the database
+ ("PaymentMethod"."IsForReceiving") rather than listed in code, so you can add
+ another bank without a deploy -- tick the column and it appears.
+
+ Nothing was deleted. Bank, Cheque, JazzCash, Easypaisa, Credit Note and Petty
+ Cash all still exist because eight months of history points at them, and
+ money going OUT -- an expense, a payment voucher -- still uses the full list.
+
+ (The owner wrote "Faisal"; the bank spells itself Faysal. The screen shows
+ whatever the database row says, so change that one row if you want the other
+ spelling.)
+
+ 🔴 AND A FINDING YOU SHOULD KNOW ABOUT: THE "RECORD PAYMENT" BUTTON ON AN
+ INVOICE HAS NEVER RECORDED ANYTHING.
+
+ Opening a sale invoice and pressing Record Payment produced a form, accepted
+ an amount and a method, said "Payment recorded" and closed. No collection, no
+ voucher, no journal line, nothing in any table. Anybody who used it believed
+ a payment had been taken.
+
+ You asked for that button to be taken off the sales panel, and it is -- only
+ the accountant and you see it now. But it also had to stop lying: it opens
+ the RECEIPT VOUCHER with that customer already chosen, which is the screen
+ that really posts the money against their open invoices.
+
+ The collection dialog on the order card has the same hole (it toasts and
+ writes nothing). It is only reachable from a widget nothing renders any more,
+ so nobody is losing money through it today, but it should either be wired up
+ or removed. Say which.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S6.  OPENING A CUSTOMER FROM THEIR PAPERWORK
+───────────────────────────────────────────────────────────────────────────────
+
+ /parties/new?type=customer is two pages now.
+
+ PAGE ONE -- the documents, one set at a time, in this order:
+
+     CNIC            front and back
+     Business card   front and back
+     Affidavit       page 1 and page 2
+
+ Each picture can be taken with the camera (it opens inside the page, back
+ camera on a phone, webcam on a laptop) or uploaded -- and Upload on a phone
+ is the one that offers the gallery, which is where the picture usually
+ already is. Every set has "Not available", and skipping all three goes
+ straight to the form with empty boxes, which is exactly what the old screen
+ was.
+
+ THE PICTURES GO UP AS THEY ARE TAKEN, to the images Cloudinary account. They
+ are not held in the browser: six photographs in a form is a save that fails
+ on a bad line with everything lost.
+
+ PAGE TWO -- the form, with whatever could be read already in the boxes:
+
+     Legal Name    the CNIC's own name, WITHOUT the father's name
+     Display Name  cnic name - shop name - shop location, the shop name and
+                   the location from the BUSINESS CARD
+     Category      Retailer by default
+     Industry      the shop's name with its location
+     Phone / Alt   from the CNIC; both when two are printed, in either
+                   03xxxxxxxxx or +923xxxxxxxxx form
+     Email         from the business card, any domain
+     Address       from the BUSINESS CARD, never the CNIC -- goods go to the
+                   shop, not to where the man sleeps
+     City          from the CNIC, matched to one of your eleven Pakistani
+                   cities (they are stored "Karachi - Pakistan", so the match
+                   is on what comes before the dash), and the province follows
+
+ ENGLISH ONLY. A CNIC prints every field in Urdu as well; the Urdu is ignored
+ rather than transliterated, because a transliteration is a guess dressed up
+ as a fact. Placeholder text like "xyz" is skipped.
+
+ NOTHING IS SAVED UNTIL THE SALESPERSON HAS READ IT. Every filled box is
+ editable, and what they save is what the database gets. The reader is a
+ typist with good eyes, not a source of truth.
+
+ A PICTURE THAT CANNOT BE READ is named. The screen goes back to that section
+ and says which: "not clear", "too much light", "part of the document is
+ outside the picture". It does not half-fill the form -- a name that is 80 %
+ right is worse than an empty box, because nobody re-reads a box that is
+ already filled.
+
+ THE ONE PDF. After the customer is created, every picture they gave is bound
+ into a single legal_documents.pdf -- a cover page with who they are and what
+ is in the set, then one page per photograph -- and stored on the documents
+ Cloudinary account with its link on the customer. Anybody who can open the
+ customer can download it.
+
+ EDITING NEVER RE-READS. Adding a picture to an existing customer files it and
+ rebuilds the PDF; it does not touch the details. Once a person has checked a
+ name, a machine does not get another go at it -- that was your instruction
+ and it is also the right way round.
+
+ THE CITY LIST ON THE CUSTOMER FORM IS PAKISTAN ONLY now. The Chinese cities
+ are still there for suppliers, which is what they were added for.
+
+ CATEGORY BY ROLE: a rep and the accountant may open a Retailer, a Wholesaler
+ or an Agent. Distributor and Manufacturer are yours alone. The list is cut on
+ the server, so it cannot be widened by editing the page.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S7.  WHAT I RAN AGAINST THE LIVE DATABASE, AND ONE MISTAKE
+───────────────────────────────────────────────────────────────────────────────
+
+ MIGRATION 21 -- run in full, on your say-so:
+   · the three steps removed, seven orders moved to "Processing in Order Dept"
+   · "IsForReceiving" added; Meezan and Faisal added; the four marked
+   · ORD-26-0171 and INV-26-8893 deleted, after checking that no return, no
+     payment, no delivery and no stock movement hung off either
+
+ MIGRATION 22 -- run in full: the eight columns that hold a customer's six
+ document pictures and the PDF they are bound into. Empty for all 26 existing
+ parties.
+
+ ONE TEST ORDER, raised and removed: ORD-26-0174, one Titan AirPro, taken
+ through the new form as a salesperson, moved to Dispatched out of Karachi
+ Warehouse to prove the stock comes off (270 -> 269), then deleted with its
+ unit put back and the order number wound back so your next order is
+ ORD-26-0174 with no gap.
+
+ ONE TEST CUSTOMER, created and removed: VZ-C-0018 "ZZ TEST DOCUMENTS
+ CUSTOMER", used to prove the documents PDF. Its "documents" pointed at an
+ existing product photograph, so nothing was uploaded for it. The PDF it
+ produced came back a real 5-page PDF of 693 KB with four photographs
+ embedded, served by Cloudinary. The customer is deleted; you are back to 26
+ parties. The PDF itself is still sitting in the documents account,
+ unreferenced -- deleting a file there needs Cloudinary's own API.
+
+ 🔴 AND THE MISTAKE. A check that was meant to be REFUSED -- "dispatch from a
+ shelf that is short" -- was not refused, because Shop 2 turned out to have
+ the stock. A real order, ORD-26-0163, was dispatched on paper: three units
+ came off Shop 2 and a notification went out saying it had left.
+
+ It was put straight back within the minute: the three units returned, the
+ movements deleted, the order back at "Processing in Order Dept" with the
+ location it had, the notifications removed, and a line in its history saying
+ exactly what happened. Nothing physically moved and nothing is out by a
+ piece. I am telling you because a status that changed and changed back is
+ the kind of thing somebody notices later and cannot explain.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S8.  THINGS I FOUND AND DID NOT CHANGE
+───────────────────────────────────────────────────────────────────────────────
+
+ S8.1  THE READER IS PROVED; THE CAMERA IS NOT
+
+       THE READER WORKS. With your key in, sample documents were put through
+       the real endpoint and every rule you gave came back right: the name
+       without the father's name, the display name as
+       "name - shop - location", the address off the CARD and not the CNIC,
+       both phone numbers, the city matched to ours, and a blurred card
+       reported as "not clear -- take it again" rather than half-filling the
+       form. Roughly 20-25 seconds for three pictures.
+
+       TWO THINGS THAT TESTING TURNED UP, both fixed:
+
+         · The flash models answer 503 "high demand" often. Three tries at one
+           model failed outright at one point, and the same pictures read
+           perfectly a minute later. It now tries the model twice and then
+           moves to another one rather than giving up.
+         · A model that truncates its own JSON -- which a blurred photograph
+           made happen -- used to take the endpoint down with a parser error on
+           the screen. It now says "take the pictures again in better light, or
+           type the details in", and the photographs are already saved either
+           way.
+
+       WHAT IS STILL UNPROVEN: a real CNIC, photographed with a real phone
+       camera. The test browser has no camera, so only the "camera refused"
+       path has run, and the documents used were drawn for the test. Please put
+       ONE real shop through the screen before your reps rely on it. If it
+       reads something wrongly, the prompt that governs every field is one
+       method -- PartyDocumentsController.Prompt -- and it is meant to be
+       argued with.
+
+ S8.2  ORDERS BEFORE TODAY STILL HAVE NOT MOVED THEIR STOCK
+
+       S1 fixes it going forward. The 26 past orders are still overstating
+       every product they carried. The correction is one script and it needs
+       your word, because it moves real shelf counts.
+
+ S8.3  NOTHING POSTS A SALE OR A RETURN TO THE LEDGER
+
+       Unchanged from 21 September (R7.1) and still the biggest accounting
+       gap: 39 invoices, 12 journal entries, all twelve seeded. Aged
+       receivables and the credit-limit check under-state by everything billed
+       through the app.
+
+ S8.4  THE SIX EXPORTS STILL STOP AT 50 ROWS
+
+       Orders, invoices, walk-in, parties, journal entries, vouchers and
+       expenses. One line each. Still waiting on your word.
+
+ S8.5  THE COLLECTION DIALOG WRITES NOTHING EITHER -- see S5.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ S9.  WHERE THE NEW THINGS LIVE
+───────────────────────────────────────────────────────────────────────────────
+
+ BACKEND
+   Services/OrderWorkflow.cs                  the seven steps, who may dispatch
+   Controllers/SalesController.cs             the dispatch step: the place, the
+                                              shortage check, the stock out
+   Controllers/PartyDocumentsController.cs    reading the documents, binding
+                                              the PDF
+   Services/GeminiClient.ReadImagesAsync      the only call that sends pictures
+   Documents/LegalDocsPdf.cs                  the customer's document set
+   Documents/PdfCanvas.Jpeg                   JPEG embedding, written for it
+   Models/PaymentMethod.Custom.cs             IsForReceiving
+   Models/Party.Custom.cs                     the six pictures and the PDF
+   database/21_order_chain_and_receiving.sql
+   database/22_customer_documents.sql
+
+ FRONTEND
+   app/(app)/sales/orders/new/page.tsx            the one-page order screen
+   components/sales/order-workflow.tsx            the "where from?" dialog
+   components/parties/customer-documents-step.tsx page one of a new customer
+   components/parties/document-capture.tsx        one photograph: camera+upload
+   app/(app)/parties/new/page.tsx                 the two pages together
+   lib/labels.ts, lib/nav-config.ts, proxy.ts     seven steps, no packing
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ PART ZERO — 21 SEPTEMBER: PLACES, RIGHTS AND RETURNS
+═══════════════════════════════════════════════════════════════════════════════
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R0.  READ THIS ONE FIRST — TWO OF YOUR SALESMEN CANNOT TAKE AN ORDER NOW
+───────────────────────────────────────────────────────────────────────────────
+
+ You asked for the customer dropdown to show a salesman only his own customers,
+ the way his Customers screen already does. Done — and here is what it means on
+ today's data, counted on the live database:
+
+     Sara Khan               7 customers
+     Zara Malik              1 customer      (the one account she opened)
+     Imran Iqbal             0
+     Muhammad AMMAR KAMRAN   0
+     Asad Ali                0               (account is inactive anyway)
+
+ A rep with nobody on his list cannot raise an order at all, because the
+ customer box is the first thing on the form. IMRAN AND AMMAR ARE IN THAT
+ STATE TODAY.
+
+ The reason is not the change; it is who the accounts are assigned to. Of the
+ 18 shop accounts:
+
+     7  assigned to Sara Khan       (sales)
+     5  assigned to Bilal Ahmed     (ORDER DEPARTMENT, not a salesman)
+     4  assigned to Hassan Raza     (ACCOUNTANT, not a salesman)
+     2  assigned to nobody at all
+
+ So nine accounts are "owned" by people who never take an order, and two are
+ owned by nobody. That was invisible while the picker showed everybody every
+ customer; it is not invisible any more.
+
+ WHAT TO DO: open Customers, and set the salesman on each account to the rep
+ who actually calls on that shop. Five minutes of work, and it is the same
+ field the Customers screen has always used. Nothing in the code needs
+ changing, and it takes effect the moment you save — no sign-out needed for
+ this one.
+
+ I did NOT reassign them myself. Who calls on which shop is a fact about your
+ business that I cannot read off the database, and guessing it would put real
+ orders in front of the wrong man.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R1.  "IN TRANSIT" IS GONE, AND IT WAS HOLDING 240 PIECES THAT DO NOT EXIST
+───────────────────────────────────────────────────────────────────────────────
+
+ The location (LOC-05) and the location TYPE are both deleted — migration 20,
+ already run on Neon. Nobody can create another one from Administration →
+ Locations, because the type is gone from that dropdown too.
+
+ THREE THINGS WERE ATTACHED TO IT, and none of them could simply be deleted
+ with it:
+
+ 1. 240 PIECES OF STOCK — 120 Linko VC101 cables and 120 Maxo VC202 cables —
+    put there by the seeded transfer TRF-26-0014. That transfer was RECEIVED
+    into Shop 2 on 25 August and the same 240 pieces were added there as well.
+    So they were counted TWICE in any total that adds the locations up: once on
+    a shelf in Shop 2 where they really are, and once on a shelf that was never
+    a place. Those 240 are deleted. Stock in Hand is 240 units lower than it
+    was yesterday and 240 units closer to the truth.
+
+ 2. ONE ORDER AND ITS INVOICE — ORD-26-0158 and INV-26-8878 — had In Transit as
+    their location. They are moved to Karachi Order Department, which is what
+    you chose. Nothing else about them changed.
+
+    THIS ONE NEARLY COST YOU AN INVOICE. Every link into "Location" in this
+    database is ON DELETE CASCADE, so a plain DELETE of the row would have
+    taken that order and that invoice with it, silently. The migration moves
+    them first and refuses to run if anything else is still pointing at the
+    location.
+
+ 3. TWO STOCK MOVEMENTS from the same seed, deleted with the balance they
+    created. The transfer now reads the way it actually happened: 120 out of
+    the warehouse, 120 into Shop 2.
+
+ WHAT IS NOT AFFECTED: the transfer STATUS called "In Transit". That is a
+ different thing and it stays — it is what a transfer says while the goods are
+ on the van, and it is the right answer to "where are they". Goods in a van
+ belong to neither shelf; that is exactly why a location for them was wrong.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R2.  EVERY CUSTOMER DROPDOWN IS NOW THE REP'S OWN LIST
+───────────────────────────────────────────────────────────────────────────────
+
+ One change, in one place: GET /sales/lookups, which is where the order form,
+ the order edit screen, the invoice form, the counter screen and the return
+ screen all get their customer list. A salesman gets the accounts he opened
+ plus the accounts assigned to him — the same rule the Customers screen has
+ always used, so the two lists cannot disagree. Everybody else (you, accounts,
+ the order desk, the warehouse) still sees the whole book.
+
+ THE API REFUSES IT TOO, not just the screen. Posting an order for somebody
+ else's customer answers:
+
+     "That customer is not yours. You can only sell to accounts you opened or
+      have been assigned."
+
+ A list that leaves a name out is not a rule — anybody can send the id by hand.
+
+ THIS REVERSES A DECISION FROM 17 SEPTEMBER. Back then you said "issued still
+ he can see all customers", and the picker was deliberately left unfiltered so
+ a rep covering for a colleague could still take the order. You have now said
+ the opposite, in these words: "jesa ka sales ka customer ka page pe sirf us ka
+ hi customer dikh raha hn wese hi hr dropdown ma sales ka apna hi customers
+ dikhna chahiya hn." The new rule is in, the old comment is gone, and R0 above
+ is the cost of it.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R3.  BILLING IS THE BACK OFFICE'S NOW — THE STEP IS CALLED "INVOICED/EDIT"
+───────────────────────────────────────────────────────────────────────────────
+
+ Step 4 of the chain reads "Invoiced/Edit" everywhere it appears. Only the
+ ACCOUNTANT and the SUPER ADMIN can press it. A salesman can still see his
+ order and print its bill; he cannot bill it.
+
+ It is closed in three places, because there were three ways to reach a bill
+ and they did not agree with each other:
+
+     the chain step           Confirmed → Invoiced/Edit, accountant or you
+     the "Raise invoice"      the button is not drawn for anybody else, and
+       button                 the endpoint refuses them if they call it anyway
+     "raise the invoice too"  ignored for any role that may not bill
+       on a new order
+
+ The right also came off the Sales ROLE in the database (migration 20 removes
+ invoices.create from it). They keep invoices.view, which is what lets a rep
+ open and print his own bill.
+
+ THE ORDER DESK KEEPS invoices.create, deliberately: the counter raises its own
+ invoice the second a walk-in pays, and that is not the same act as billing an
+ order that is going through the chain. The chain refuses them by role.
+
+ THE "EDIT" HALF. At that step the accountant may also CHANGE the order —
+ lines, quantities, prices — without asking you, while it is confirmed or
+ invoiced and the warehouse has not picked it yet. Editing an invoiced order
+ rebuilds its invoice and its PDF to match, as it always did. Once the
+ warehouse has it in hand, editing goes back to being yours alone.
+
+ WHO IS TOLD, since you asked for accounts and yourself to be notified:
+
+     order confirmed   → you, ACCOUNTS (new), the warehouse, the rep
+                         "Waiting for accounts to invoice it."
+     order invoiced    → you, accounts, the WAREHOUSE (new), the rep
+                         "The warehouse can pick it."
+
+ The confirmed message used to say "Warehouse can prepare the stock", which was
+ never true — the warehouse's first move only opens once the invoice exists.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R4.  THE INVOICE STILL SAVES ITSELF — THERE WAS NOTHING TO FIX
+───────────────────────────────────────────────────────────────────────────────
+
+ You asked that after Invoiced nobody should have to go to Sale Invoices → New
+ and make the invoice separately. That has been true since 17 September:
+ pressing the step cuts the invoice, numbers it, renders the bill, pushes it to
+ Cloudinary and stores the link, all in one move, and pressing it twice never
+ makes a second bill. Checked again today.
+
+ The sales return then works off that invoice like any other — and from today
+ it does not even need it, because a return is against the customer (R5).
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R5.  THE SALES RETURN, REBUILT
+───────────────────────────────────────────────────────────────────────────────
+
+ WHO. Only the accountant and you. The screen is gone from the salesman's
+ sidebar, typing the address sends him to the 403 page, and every returns
+ endpoint refuses his token — permission AND role, both. The order desk lost it
+ as well, because you said "only admin and accountant".
+
+ THE FLOW, in the order you described it:
+
+   1  SALESPERSON, optional. Only narrows the customer list to his.
+   2  CUSTOMER, required. Everything below comes from this one choice.
+   3  On the right: HIS LAST 5 ORDERS with date, order and invoice number, and
+      every item with its quantity — and under it EVERYTHING HE HAS EVER
+      BOUGHT, from his first bill to his last, with how many were bought, how
+      many have already come back and how many still may. No date window at
+      all, exactly as you asked.
+   4  In the middle: ADD PRODUCT, which offers ONLY what this customer has been
+      billed for. Anything already returned in full is greyed out.
+   5  WHERE THE GOODS GO — asked, never guessed. One location for the return,
+      and every returned piece is added to it the moment you save.
+   6  Save. The date is today (system date, not typeable), the credit note is
+      generated and stored, and the stock is on the shelf before the screen
+      moves.
+
+ TAPPING IS FASTER THAN TYPING. A line in the "last 5 orders" panel adds that
+ item with the quantity that was sold on that order; a line in the "everything
+ bought" list adds one. Both respect the ceiling.
+
+ THE CEILING, which you were most particular about: bought minus already
+ returned, per item, per customer. Five hundred bought means at most five
+ hundred back, and 501 is refused. It is checked in four places, on purpose:
+
+     · the + and − buttons stop at it
+     · a typed number is clamped to it
+     · adding the same item twice sums the two rather than letting each pass
+     · and the API recomputes the whole thing INSIDE the transaction that
+       writes the return, under a per-customer lock, so two people saving at
+       the same second cannot both get through
+
+ Tested against the live database, every path: 33 of 32 refused, an item the
+ customer never bought refused, zero and negative quantities refused, no items
+ refused, a closed location refused, a salesman's token refused.
+
+ THE PRICE. Each piece is credited at what THAT customer actually paid for it
+ on average — discount taken off, tax on — across every bill they have had.
+ That was your answer to the question; the other options were the latest price
+ they paid, or today's catalogue price. Nobody can type a rate on this screen,
+ which is deliberate: a refund amount typed into a browser is a refund amount
+ somebody can change.
+
+ DAMAGED GOODS. There is no "condition" question any more. The shelf answers
+ it: send them to Claim Stock and the return records them as damaged and says
+ so on the screen; send them anywhere else and they are resalable. Either way
+ the pieces land where you said they should, which is what you asked for.
+
+ NO APPROVAL STEP. The return is POSTED the moment it is saved, because the
+ only two people who can raise one are the two who used to approve it. If it
+ turns out to be wrong, "Reverse & reject" on the return still takes the units
+ back off the shelf.
+
+ OLD RETURNS ARE UNTOUCHED. The seven that already exist still point at their
+ invoice and still read the way they did. The new ones say "Several orders"
+ where the old ones name a bill.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R6.  WHAT I RAN AGAINST THE LIVE DATABASE
+───────────────────────────────────────────────────────────────────────────────
+
+ MIGRATION 20 — run in full, on your say-so:
+     · In Transit removed (R1), with the order and invoice moved first
+     · invoices.create taken off Sales
+     · returns.sales taken off Sales and the order desk; confirmed present for
+       you and the accountant
+     · "SalesReturn"."InvoiceId" made nullable
+     · the INVOICED status renamed to "Invoiced/Edit" (the KEY is untouched —
+       every comparison in the code is on the key)
+
+ ONE TEST RETURN, raised and then removed, also on your say-so:
+     SR-26-0043, Cellular World KHI, 2 Titan AirPro + 1 Itel battery, PKR
+     3,118, into Karachi Warehouse. It proved the whole path: the row, the
+     stock going up, the movements, the credit note on Cloudinary (200 OK,
+     6,212 bytes), the list, the detail screen, the dashboard tile.
+
+     It is gone now. The three units were taken back off Karachi Warehouse, its
+     movements, activity row, notifications and document record were deleted,
+     and the SR counter was wound back so your next real return is SR-26-0043
+     with no gap in the book. Counted before and after: 7 returns before,
+     7 after; the two products are back at exactly the quantities they had.
+
+     ONE LEFTOVER I COULD NOT REMOVE: the credit-note PDF is still sitting in
+     the Cloudinary account, unreferenced by anything. Deleting a file there
+     needs the account's own API and I did not think that was mine to call.
+     It costs a few kilobytes and nothing links to it.
+
+ NOTHING ELSE WAS WRITTEN.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R7.  THINGS I FOUND AND DID NOT CHANGE
+───────────────────────────────────────────────────────────────────────────────
+
+ R7.1  A SALE INVOICE STILL DOES NOT REACH THE LEDGER
+
+       Found while deciding what a return should post. No invoice raised by
+       this application writes a journal entry — 39 invoices exist and 12 have
+       one, and those 12 are all seeded. Sales returns are the same, and have
+       always been.
+
+       WHAT IT MEANS: a customer's "outstanding" is computed from posted
+       journal lines, so the money owed on every invoice raised through the app
+       is not in that figure, and neither is the credit for a return. The
+       customer STATEMENT is built from the documents themselves and is right;
+       the aged-receivable figures and the credit-limit check are the ones that
+       under-state.
+
+       I kept the new return consistent with the invoice rather than posting
+       one side of a pair. Posting both is a real piece of work — which account
+       is Sales Returns, which is Receivable, what happens at period close —
+       and it is not something to slip into a screen change. Say the word and
+       it is a session of its own.
+
+ R7.2  PER-INVOICE "RETURNED" COUNTS STOP GROWING
+
+       The invoice screen shows how many of each line have come back. It counts
+       returns that name that invoice, and returns raised from now on do not
+       name one, so that number will stay where it is. The figure that matters
+       — how many of this item may still come back — is on the return screen
+       and is always right.
+
+       Fixing it properly means recording which bill each returned piece came
+       off, oldest first. Worth doing if you ever want a return matched to a
+       tax invoice, and not worth doing for stock.
+
+ R7.3  THE SIX EXPORTS ARE STILL CAPPED AT 50 ROWS
+
+       Unchanged from 20 September (P11.1): orders, invoices, walk-in, parties,
+       journal entries, vouchers and expenses all stop at 50 rows in the
+       spreadsheet. One line each. Still waiting on your word.
+
+ R7.4  ORDERS STILL DO NOT MOVE STOCK
+
+       The big one from 20 September (P0) is exactly as it was: an order going
+       through the ten steps writes no stock movement, so Stock in Hand is
+       overstated by everything sold through the chain. Today's change makes
+       one part of it worse in an obvious way — a sales return ADDS stock
+       properly, while the sale that took it out never subtracted it. Tell me
+       which step should take the stock off the shelf and it is one method and
+       one correction script.
+
+ R7.5  THE ACCOUNTING NOTE ON THE RETURN SCREEN IS STILL ASPIRATIONAL
+
+       The panel that reads "DR Sales Returns & Allowances · CR Accounts
+       Receivable" describes the entry an accountant WOULD raise. Nothing posts
+       it (R7.1). Left as it was, because it is true as a description of what
+       should happen and I did not want to hide the question.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R8.  WHERE THE NEW THINGS LIVE
+───────────────────────────────────────────────────────────────────────────────
+
+ BACKEND
+   Services/OrderWorkflow.cs            who may bill (MayInvoice), who may edit
+                                        (MayEditOrder), who is told at each step
+   Controllers/SalesController.cs       GET  /sales/returns/lookups
+                                        GET  /sales/returns/customer/{id}
+                                        POST /sales/returns   (rewritten)
+                                        customer scoping in /sales/lookups and
+                                        in ValidateOrderRequest
+   Models/SalesReturn.cs                InvoiceId is int? now
+   Documents/DocumentBuilder.cs         credit note with no invoice behind it
+   database/20_places_rights_and_returns.sql
+
+ FRONTEND
+   app/(app)/sales/returns/new/page.tsx     the new screen, rewritten whole
+   app/(app)/sales/returns/[id]/page.tsx    reads with or without one invoice
+   app/(app)/sales/returns/page.tsx         "Several orders" in the Against column
+   components/sales/order-workflow.tsx      canInvoice, and the Edit label
+   proxy.ts                                 /sales/returns is admin + accounts
+   lib/labels.ts                            INVOICED reads "Invoiced/Edit"
+
+
+───────────────────────────────────────────────────────────────────────────────
+ R9.  HOW TO CHECK IT YOURSELF, IN FIVE MINUTES
+───────────────────────────────────────────────────────────────────────────────
+
+  1  Sign in as a salesman. There is no "Sales Returns" in his sidebar; typing
+     /sales/returns gives the 403 page. On one of his orders there is no
+     "Raise invoice" button and no status button at Confirmed.
+  2  Sign in as the accountant. The same order offers "Invoiced/Edit" and
+     "Edit". Sales Returns is in his sidebar.
+  3  Administration → Locations: five places, no In Transit, and New Location
+     does not offer that type.
+  4  Sales Returns → New Return: pick a customer, and his last five orders and
+     everything he has ever bought fill the right-hand side. Try to return more
+     than he bought — the box will not let you, and the server refuses it too.
+  5  Inventory → Stock in Hand: four columns, no In Transit.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ PART ONE — 20 SEPTEMBER: PRODUCTS
+═══════════════════════════════════════════════════════════════════════════════
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P0.  THE BIGGEST THING I FOUND, AND DID NOT CHANGE: ORDERS NEVER TAKE STOCK
+      OFF THE SHELF
+───────────────────────────────────────────────────────────────────────────────
+
+ Found while building the product history, because the history and the stock
+ ledger disagreed.
+
+ An order that goes through the ten-step chain — Confirmed, Invoiced, Seen by
+ Warehouse, On way, Received, Packaging, Dispatched, Delivered — never writes a
+ stock movement. Not at any step. The ONLY things that take stock out for a
+ sale are the old /packing screen and the counter sale.
+
+ COUNTED ON THE LIVE DATABASE: 31 invoices raised against orders, and 5 of
+ them have a SALE stock movement. The other 26 sold goods that are still
+ counted as sitting on a shelf.
+
+ Example: Redmi 14C shows 463 on hand. 100 of them were invoiced and delivered
+ to Arsalan Siddiqui on ORD-26-0171. The shelf count does not know.
+
+ So "Stock in Hand" is overstated by everything sold through the order chain
+ since 3 September, and the low-stock warnings fire late by the same amount.
+
+ NOT FIXED because it needs a decision only you can make: at WHICH step does
+ the stock leave? The candidates, and what each one means:
+
+   · Seen by Warehouse    the keeper has it in hand. Earliest, and stock is
+                          reserved the moment the warehouse accepts the order.
+   · On way to Order Dept the goods physically leave the warehouse shelf. This
+                          is really a TRANSFER (warehouse -> order desk), and
+                          the sale then happens from the order desk.
+   · Dispatched           the goods leave the building. What most distributors
+                          use, and what the old /packing screen did.
+
+ Whichever you pick, the 26 past orders also need their stock taken out once,
+ as a correction, or the shelves stay wrong. Tell me the step and I will do
+ both — the code is one method, the correction is one script.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P1.  THE SKU IS MADE, NOT TYPED
+───────────────────────────────────────────────────────────────────────────────
+
+     VZ - WORD - MODEL - CAT - COLOUR - NN
+
+     "VIZO Titan T9 Wireless Earbuds - Black"   in  Earbuds
+                                     ->  VZ-TIT-T9-EAR-BLK-01
+
+ Your example was "VZ-TIT-T9-EAR". Your own description of the format also
+ asked for the colour and a serial, so both are there: BLK, and 01. The serial
+ is what keeps it unique: two different products whose names reduce to the
+ same parts — "VIZO VOLT Car Charger 45W" and a "VIZO VOLT Wall Charger 45W",
+ say — are VZ-VOL-45W-CHA-01 and VZ-VOL-45W-CHA-02.
+
+ THE JUDGEMENT CALLS, all in backend Services/SkuGenerator.cs, one file, so
+ they can be argued with:
+
+   · The brand word is skipped (VZ already says it).
+   · Descriptions are never the WORD: Wireless, Bluetooth, Smart, Fast, Type…
+     "Wireless Earbuds T9" is a T9, and "WIR" tells nobody anything.
+   · The category's own words are never the WORD either, or every earbud would
+     be VZ-EAR-…
+   · MODEL is the first token with letters AND digits (T9, V65, X2, VPD45W).
+   · No model number? A rating stands in: 10000mAh -> 10K, 65W -> 65W. The
+     10,000 and 20,000 mAh power banks differ in nothing but that.
+   · COLOUR is what follows a dash ("… - Black"), or a colour word anywhere.
+     Two-word shades keep their first letter: Sky Blue -> SBLU, Rose Gold ->
+     RGLD, Cool White -> CWHT.
+
+ Run over all 38 names in the live catalogue before shipping. A few:
+
+     VIZO PowerX 10000mAh Power Bank - Black   VZ-POW-10K-POW-BLK-01
+     VIZO VOLT 65W GaN Type-C Charger (PD)     VZ-VOL-65W-CHA-01
+     VIZO Blaze Pro V65 Handfree               VZ-BLA-V65-HAN-01
+     VIZO LED Bulb 9W (Cool White)             VZ-LED-9W-LED-CWHT-01
+     VIZO G530 Samsung Battery                 VZ-SAM-G530-BAT-01
+
+ EXISTING PRODUCTS KEEP THEIR SKUs. They are printed on labels and invoices
+ already (05050781 and friends). Nothing was renumbered, and editing a product
+ does not re-derive its SKU — a code that shifted every time somebody fixed a
+ typo would be useless as a code.
+
+ WHERE IT IS DECIDED: on the server, inside the same transaction as the insert,
+ under a lock, so two people saving at the same moment get 01 and 02 rather
+ than a crash. The box on the form is a live PREVIEW.
+
+ A BARCODE THAT CARRIES ONE OF OUR SKUs WINS. Scan or type a code containing
+ VZ-…-… (whole, or inside a QR payload) and the SKU box switches to it, with a
+ "From barcode" tag. Remove the barcode and it goes back to the generated one.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P2.  THE SAME PRODUCT TWICE IS REFUSED
+───────────────────────────────────────────────────────────────────────────────
+
+ Exactly the same name — ignoring capital letters and extra spaces — is refused,
+ on the form as you type AND on the server. "vizo  titan t9 wireless earbuds -
+ black" is caught as a copy of the existing product and the message names its
+ SKU with a link to it. Change anything real — "- Red" instead of "- Black" —
+ and it goes in as a new product with its own SKU. Checked against live data.
+
+ A barcode that already belongs to another product is refused the same way,
+ with that product's name. The column was always UNIQUE; this used to surface
+ as a constraint name inside a 500.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P3.  PRICING: COST + DUTY + MARGIN = SALE
+───────────────────────────────────────────────────────────────────────────────
+
+ Five boxes, in the order a price is built: Cost, Duty, Margin price, Margin %,
+ Sale. Your worked example, checked in the browser:
+
+     cost 200, duty 50, margin 20 %      -> margin 50,  sale 300
+     then type margin price 75           -> 30 %,       sale 325
+     then change cost to 300             -> 75 stays,   21.43 %, sale 425
+     then type sale 499 directly         -> margin 149, 42.57 %
+
+ The PERCENTAGE IS ON COST + DUTY, never on the sale price — as you specified.
+ Whichever of the three you typed last is held still when cost or duty
+ changes. The sum is written out under the boxes so nobody has to trust them.
+
+ STORED: DutyPrice and MarginPrice, new columns (migration 19). The percentage
+ is NOT stored; it is margin ÷ (cost + duty), always derivable, and a
+ percentage kept beside the three prices is a second answer that can disagree.
+ SalePrice stays the one every invoice and report reads.
+
+ Existing products were given the margin their prices already imply
+ (sale − cost) with duty 0, so every row agrees from day one.
+
+ SELLING BELOW COST IS ALLOWED. The form turns red and says so; the database
+ does not refuse it, because clearance and loss-leaders are real.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P4.  OPENING COST IS GONE — EXCEPT THE COLUMN ITSELF, WHICH IS YOURS TO DROP
+───────────────────────────────────────────────────────────────────────────────
+
+ Removed from every screen, the API, the model and the old mock data. Checked
+ first: nothing in the ledger, invoices, purchases, reports or any database
+ view read it. It lived on three product screens and nowhere else.
+
+ THE COLUMN IS STILL IN THE DATABASE, on purpose, until the new API is
+ deployed. The old build selects it on every product query, so dropping it
+ while the old build is still running breaks the product screens until the
+ deploy lands. The new build never touches it. See changa.txt §A1 — one line.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P5.  BARCODES AND THE CAMERA
+───────────────────────────────────────────────────────────────────────────────
+
+ "Scan barcode" opens a small window with the camera. It reads EAN-13/8,
+ UPC-A/E, Code 128/39/93, ITF, Codabar and QR, and ends one of three ways:
+
+   · a code is read       it goes into the next empty box, editable
+   · three minutes pass   "Barcode was not found", window closes
+   · no camera            "Camera was not found on this device"
+
+ Also handled, because they happen: permission refused, camera in use by
+ another app, and a page that is not https (the browser does not allow the
+ camera at all on plain http — the message says that instead of "no camera").
+
+ Any number of barcodes per product; each is checked against the catalogue the
+ moment it is scanned or typed.
+
+ TWO DECODERS. Chrome, Edge and Android have a built-in barcode reader and it
+ is used first. Safari, iPhone and Firefox do not; there the @zxing library
+ does the job. That library loads only when the scan window opens — it never
+ touches a page that does not scan.
+
+ WHAT I COULD NOT TEST: an actual scan. My browser has no camera — it refused
+ the camera, and the "permission refused" path worked exactly as written. The
+ scanning itself needs a real phone. Please try one box before relying on it.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P6.  PRODUCTS AS CARDS
+───────────────────────────────────────────────────────────────────────────────
+
+ /inventory/products is now cards: a big picture, brand and category, name,
+ SKU, sale price, landed cost, margin %, stock, reorder level, pack size,
+ barcode count. The whole card opens the product. A table view is one click
+ away and the choice is remembered on that device.
+
+ Two faults fixed on the way, both in the list endpoint:
+
+   · The status filter ran AFTER the page was cut, so "Low stock" showed
+     whichever low items happened to be on page one. It filters first now.
+   · The counts at the top (Low 2, Out 5…) now cover the whole catalogue.
+     With paging, counting only the page on screen would change on "Next".
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P7.  MOVEMENTS, ONE MOVEMENT, AND "SEE COMPLETE TRANSFER"
+───────────────────────────────────────────────────────────────────────────────
+
+ The Movements tab is cards. A transfer is ONE card — from, to, how many,
+ when, received when — not two half-rows (out of here, into there) that have
+ to be found and read together.
+
+ Each card opens its own page: /inventory/products/{id}/movements/{movementId}
+ — who did it and their role, the time, the location and what was left there,
+ every fact on the document, BOTH legs of a transfer with their own times, the
+ other products on the same document, and "See complete transfer", which opens
+ the whole transfer. Receipts, invoices, returns and corrections get the same
+ page with their own "See complete …" button.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P8.  HISTORY
+───────────────────────────────────────────────────────────────────────────────
+
+ A History tab on the product (headline figures and the latest few events), and
+ its own page for the whole story: /inventory/products/{id}/history
+
+   Timeline      ordered from the supplier · received · billed by the supplier
+                 · customer ordered · confirmed · picked up by the warehouse ·
+                 on its way · received at the order desk · packed · dispatched
+                 · delivered · invoiced · returned · moved · corrected ·
+                 warranty claims · catalogue edits. Filter chips by kind.
+   Stock ledger  the accounting reading: opening + in − out = on hand, proved
+                 on screen, then line by line with the running total.
+   Export Excel  one workbook, seven tabs: Summary, Timeline, Stock ledger,
+                 Purchases, Sales, Journey & delivery, Transfers. All of it —
+                 not the page on screen.
+
+ Headline figures: on hand and its value, units received, sold, net sales,
+ cost of sales, gross profit and its %, returns both ways, transfers,
+ corrections, claims.
+
+ Cards on a phone, a table for the ledger on a desk. Checked at phone width.
+
+ NOTHING NEW IS STORED. Every line is read from the documents that already
+ exist, plus the activity log for the order's journey. A separate history
+ table would be a second record of the same facts.
+
+ The ledger's OPENING line is the stock that was on the shelves before
+ anything recorded it moving — the seed catalogue came in with balances and no
+ history. Opening + movements = on hand is the ledger's own equation, so it is
+ shown as a line of its own rather than folded silently into the first entry.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P9.  NO DATES BEFORE TODAY
+───────────────────────────────────────────────────────────────────────────────
+
+ Every date a person ENTERS on a document now starts at today: orders and
+ delivery dates, invoices and due dates, returns, purchase orders and expected
+ dates, goods receipts and expiry, supplier bills, purchase returns, transfers,
+ stock corrections, expenses, journal entries, vouchers, payments, collections,
+ and the dispatch "should reach by" date. 19 forms.
+
+ Checked twice over, because the calendar alone is not enough: the picker will
+ not offer an earlier day, AND a date typed in by hand is refused with "Dates
+ before today cannot be chosen". Tested both in the browser.
+
+ WHAT IT DELIBERATELY DOES NOT COVER — the From / To filters on lists and
+ reports. Those ask "show me what happened between these dates", and a report
+ that could not look backwards would be empty on every screen. If you did mean
+ those too, say so; it is one line each.
+
+ EDIT SCREENS keep the date the record already has. An expense entered on the
+ 10th can still be edited on the 20th without being forced to change its date;
+ it just cannot be moved to a different past date.
+
+ THREE THINGS YOU MIGHT WANT DIFFERENTLY:
+
+   · CHEQUE DATE is included. A cheque handed over today is often dated a few
+     days ago, and it now cannot be recorded with its real date.
+   · SUPPLIER BILL DATE is included. A supplier's bill typed in the day after
+     it arrived can no longer carry the day it arrived.
+   · THE API DOES NOT ENFORCE IT. The rule is on the screens. Anything posting
+     straight to the API can still date a document in the past. Enforcing it
+     server-side would also stop the owner correcting an old date, which is
+     why I did not do it without asking.
+
+ "TODAY" IS THE DEVICE'S OWN DATE, as asked. The date fields used to default
+ with a UTC date, which is yesterday between midnight and 5 am in Pakistan —
+ with the new rule, those forms would have refused their own default every
+ night. Fixed in the same change.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P10.  TIMES ON SCREEN WERE FIVE HOURS LATE — FIXED, WITH ONE SIDE EFFECT
+───────────────────────────────────────────────────────────────────────────────
+
+ Found while checking the timeline against the database.
+
+ Since 3 September the API has written every timestamp in Pakistan time
+ (BusinessClock). The screens went on reading them as UTC, so everything
+ recorded since then displayed five hours late, and anything done in the last
+ five hours showed as "just now". Proved on live data: the newest activity row
+ was stamped LATER than the current UTC time, which only a Pakistan clock can
+ do.
+
+ Now read as Pakistan time, everywhere: vizo-erp/src/lib/format.ts.
+
+ THE SIDE EFFECT: rows written BEFORE 3 September were UTC, and now display
+ five hours early. convey.txt §7 already said those rows were never converted.
+ Following the system's own clock is right going forward; old rows are old.
+
+ Dates are also printed the same on every device now. A browser set to US
+ time showed a transfer of the 17th as the 16th.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ P11.  SMALLER THINGS FOUND AND NOT CHANGED
+───────────────────────────────────────────────────────────────────────────────
+
+ P11.1  SEVEN EXPORTS SILENTLY STOP AT 50 ROWS — orders is about to
+
+        Each export calls its list action with "give me 5000", and the list
+        action caps that: over 200 (or 500) it quietly falls back to 50. So
+        the spreadsheet is the first 50 rows and says nothing.
+
+            Orders          46 today — next few orders and it starts losing
+            Journal entries 44
+            Invoices        39     Parties 26    Vouchers 17
+            Expenses        10     Walk-in sales
+
+        Fixed for PRODUCTS only, because I rebuilt that screen. The rest is the
+        same one-line change in each list action. Say the word.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ PART TWO — 17 SEPTEMBER: INVOICES, RETURNS, PLACES, NOTIFICATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 1.  THE THREE FAULTS BEHIND WHAT YOU REPORTED, AND WHAT EACH ONE ACTUALLY WAS
+───────────────────────────────────────────────────────────────────────────────
+
+ You reported four symptoms. They came from three faults, and none of the three
+ was where the symptom pointed. Worth writing down, because two of them had
+ been there since the order workflow shipped on 3 September.
+
+
+ 1.1  "CLICKING INVOICED DOES NOT PRODUCE AN INVOICE"
+
+      It never did. PATCH /sales/orders/{id}/status wrote a status id and
+      nothing else. There is a separate POST /orders/{id}/invoice that does the
+      real work — cuts the invoice, numbers it, renders the bill, pushes it to
+      Cloudinary — and the chain strip on the order screen never called it.
+
+      So pressing step 4 of the chain, which is the obvious way to bill an
+      order and the one thing on screen, left an order that SAID "Invoiced"
+      with no "SalesInvoice" row behind it. Nothing to print, for anybody:
+      not the rep, not the warehouse, not the order desk, not you.
+
+      COUNTED AGAINST THE LIVE DATABASE. Six orders are in that state and three
+      of them have already been delivered to customers:
+
+          ORD-26-0140 Dispatched      ORD-26-0168 Dispatched
+          ORD-26-0141 Dispatched      ORD-26-0170 Invoiced
+          ORD-26-0143 To Order Dept   ORD-26-0171 Delivered
+
+      The two routes now call the same method, so it cannot happen again. All
+      six have been invoiced, on your say-so, through the real endpoint —
+      see 7A for the numbers they were given and for the mistake I made doing
+      it.
+
+      It is idempotent. An order that already has an invoice does not get a
+      second one; the step just makes sure the PDF exists. That is the other
+      half of what you asked for, and it is enforced in the API rather than in
+      the screen, so it holds however the endpoint is reached.
+
+
+ 1.2  "SALES RETURN SAYS Could not load invoices and refund methods"
+
+      The Sales role did not hold invoices.view. Checked against the live
+      database before changing anything — it held exactly five permissions:
+
+          customers.manage, customers.view, orders.create, orders.view,
+          reports.view, returns.sales
+
+      returns.sales was there. invoices.view was not.
+
+      The new-return screen loads the invoice list and the refund methods in
+      one Promise.all. The invoice half answered 403, the whole call rejected,
+      and the catch printed a sentence naming both halves and identifying
+      neither. Sales returns were never broken. A rep was simply not allowed to
+      look up the invoice they were returning against — and for the same
+      reason could not open or print any bill, which is the other symptom you
+      described.
+
+      Two changes, and they are independent on purpose:
+
+        · migration 18 grants invoices.view, invoices.create and returns.sales
+          to the Sales role.
+        · the screen now settles the two calls separately and says which one
+          failed, in the API's own words. If this ever happens again you will
+          be told what actually went wrong.
+
+      PERMISSIONS ARE IN THE TOKEN. Everybody has to sign out and back in, or
+      wait eight hours. See changa.txt §1.2.
+
+
+ 1.3  "NOBODY CAN SEE THE INVOICE AS A PDF"
+
+      Two separate things, and only one of them was the one everybody assumed.
+
+      The FIRST is 1.1 above: six orders had no invoice at all.
+
+      The SECOND is a link that could be dead and nothing checking. Every bill
+      is pushed to Cloudinary and the returned URL written to
+      "SalesInvoice"."PdfUrl", and the screen opens that URL directly, because
+      window.open cannot send an Authorization header. Cloudinary blocks PDF
+      delivery by default on accounts created since 2023: the upload succeeds,
+      an ordinary-looking secure_url comes back, and every request to it
+      answers 401.
+
+      PdfStore has always HEADed the URL after uploading and reported the
+      answer. For a sale invoice that answer was used to choose the WhatsApp
+      link and then thrown away — there was nowhere to keep it. So during the
+      whole period the account was refusing PDFs, every Print button in the
+      application opened Cloudinary's error page and the app had been told and
+      had forgotten.
+
+      CHECKED TODAY, AND IT IS SERVING. HEAD on a real stored bill answers 200.
+      Somebody has ticked the box since convey.txt last said otherwise. Good —
+      that is the better link. But the app now stores the answer per invoice
+      instead of assuming either way, and re-checks a false one exactly once,
+      so ticking or unticking that box never again silently breaks Print.
+
+      TEN OF THE 38 INVOICES still have no stored PDF. Nothing is broken — a
+      bill is rendered from the database whenever one is asked for — and the
+      first time each is opened it archives itself. See changa.txt §2.2.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 2.  WHAT A SALESPERSON SEES NOW, EXACTLY
+───────────────────────────────────────────────────────────────────────────────
+
+ HIS OWN: orders he raised, invoices against them, returns against those, and
+ the customer accounts HE OPENED or has since been assigned.
+
+ EVERYBODY'S: the customer PICKER on the order form. Deliberately — you said
+ "issued still he can see all customers", and a rep covering for a colleague
+ still has to be able to take the order. Administering an account and selling
+ to one are different questions and they now have different answers.
+
+ THE CREATOR IS A NEW FACT. "Party" carried only SalesPersonUserId, which is
+ the rep the relationship is ASSIGNED to: often empty, and freely reassigned
+ when a territory moves. Using it to answer "whose customers are these" would
+ mean a rep loses their own account the day you hand it to somebody else. So
+ there is now a separate "CreatedByUserId", written once and never edited.
+
+ EXISTING ROWS were back-filled from the assigned rep, which is the closest
+ true answer that exists — nothing recorded the creator before today. Parties
+ with no rep are NULL and show only to the back office. That is correct: nobody
+ can claim them. If some of them ought to belong to a particular rep, set the
+ Sales Rep field on each and they will appear.
+
+ The scoping is on the ROLE, not on a permission. Giving Sales the right to
+ handle returns opens the returns screen to them; it does not turn them into
+ the accounts department. Accounts, the order desk, the warehouse and you all
+ see everything — you cannot reconcile a ledger through a keyhole.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 3.  THE SALES RETURN, END TO END
+───────────────────────────────────────────────────────────────────────────────
+
+ A rep raises it against one of their own invoices. The API refuses an invoice
+ that is not theirs, refuses a product that is not on it, and refuses more
+ units than were sold less whatever has already come back.
+
+ IT GETS A DOCUMENT OF ITS OWN — a return note, not a second invoice. That is
+ the distinction you drew and it is the right one: the order keeps the single
+ bill it was billed on, because that number is printed on paper the customer is
+ holding and a second bill for the same goods is how one sale gets paid for
+ twice. What comes back is a different event with its own number (SR-…) and its
+ own piece of paper.
+
+ The note carries the invoice AND the order it came off, every line with its
+ CONDITION, where each resalable unit went back to, and the credit due. The
+ condition is on the face of it because it is the whole argument: a resalable
+ unit is worth its price again, a damaged one is a loss somebody absorbs.
+
+ It is archived to Cloudinary the moment the return is saved, in the same store
+ and through the same renderer as every other document. Returns raised BEFORE
+ today have no archived copy; their Print button renders from the database, so
+ it works, and archives nothing.
+
+ YOU ARE TOLD BY NAME. The notification goes to you, to Accounts and to the
+ order desk (stock is coming back to a shelf they look after). Every copy now
+ ends with who it was addressed to — see section 5.
+
+ ON YOUR DASHBOARD it is a column of its own, in red, and a link. Count of
+ returns, how many are waiting on a decision, units back, value credited, and
+ the five most recent with the ORDER number rather than just the invoice —
+ because the question you asked is which orders had goods come back. Clicking
+ through goes to the list; clicking a row goes to the return, where the order,
+ the bill, how many of the sold units came back, both PDFs and the whole
+ activity trail are on one screen.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 4.  WHICH WAREHOUSE, WHICH ORDER DESK
+───────────────────────────────────────────────────────────────────────────────
+
+ NO NEW TABLE. The schema has modelled this since the first day and neither
+ side was ever read:
+
+     "User"."PrimaryLocationId"   the one place this person works at
+     "UserLocation"               every place they may work out of
+
+ What was missing was the rule. /admin/users would create a warehouse keeper
+ with no location, or three, or attached to the Claim Stock shelf — and the
+ picking queue then showed them every order in the company.
+
+ Now: a keeper or an order-desk clerk gets EXACTLY ONE location, and it must be
+ of the right kind — a warehouse for the keeper, a department for the desk. The
+ form asks "which warehouse" and offers only warehouses; the API enforces the
+ same rule, because a form is a convenience and not a guarantee.
+
+ NOT "at least one". A keeper who belongs to two warehouses has an ambiguous
+ queue, and the first thing anybody would ask on seeing it is which of the two
+ the stock is actually on. If somebody genuinely covers both cities, give them
+ two accounts or a back-office role — that is a decision about how the business
+ is run, not a second tick-box.
+
+ The warehouse queue is filtered to the keeper's own warehouse. You can still
+ look at any warehouse's queue by passing a location. An account with no place
+ set sees everything, which is what an admin looking at that page should see.
+
+ THE SEED ONLY EVER HAD KARACHI, with two locations named "Warehouse" and
+ "Order Department" — true when there was one city and confusing the moment
+ there are two. Migration 18 renames them to "Karachi …" and adds the Lahore
+ pair, so the dropdown has something to show. They are ordinary rows: rename
+ them, deactivate them, add Faisalabad beside them. Nothing in the code knows
+ any location's id or name. If you would rather set them up yourself, delete
+ section 4 of migration 18 before running it.
+
+ Every other role keeps the old behaviour — as many locations as you want to
+ grant. An accountant reading ledgers is not standing anywhere in particular.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 5.  STOCK IN HAND, BY CITY
+───────────────────────────────────────────────────────────────────────────────
+
+ /inventory/stock-levels now has a picker at the top: "Whole system — every
+ city combined", then one entry per city with its units.
+
+ THE CITY IS THE UNIT, not the shelf. Karachi has a warehouse and an order
+ department; Lahore has its own pair. "How much do we hold in Lahore" means
+ both of them added together, and a per-location view cannot answer it — half
+ the stock is on the other shelf. The screen could previously only show every
+ location side by side, which answers a different question and gets less
+ readable with every city added.
+
+ Inside a city the per-location columns stay, because it still matters whether
+ something is on the warehouse shelf or already at the order desk. There are
+ simply fewer of them, and only that city's.
+
+ A row of city chips under the figures shows every city's units and value
+ whatever the filter is set to — a breakdown that moves when you pick one of
+ its own rows is a breakdown nobody can read, and comparing two towns is most
+ of why anybody opens this screen.
+
+ THE FILTER IS SERVER-SIDE. There are 957 items across five locations today and
+ there will be more of both; pulling every balance and hiding most of them in
+ the browser is the shape that stops working quietly.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 6.  NOTIFICATIONS: WHO IT IS FOR, AND A LINK THAT IS A LINK
+───────────────────────────────────────────────────────────────────────────────
+
+ 6.1  EVERY ONE NOW SAYS WHO IT WAS SENT TO
+
+      "For Muhammad Zain (Warehouse Keeper)." on the end of the body, with the
+      full name and the role in words.
+
+      The same event goes to four or five people at once and the wording never
+      said which copy you were holding. A keeper reading "Order invoiced" could
+      not tell whether it had been addressed to them, to the order desk or to
+      you. Read from the database, not from the token — the token belongs to
+      whoever pressed the button, and this line is about whoever is reading it.
+
+      The body is trimmed first if it would not otherwise fit. The column is
+      300 characters and a row that overflows is a row that is thrown away
+      silently, which is how long notifications used to disappear.
+
+ 6.2  THE LINK CARRIES THE REAL ADDRESS
+
+      https://advpos-frontend.vercel.app/sales/orders/42, not /sales/orders/42.
+
+      It comes from configuration — App:WebBaseUrl, overridable per environment
+      with the App__WebBaseUrl variable — so you change one line and every
+      notification, push and bell row follows. See changa.txt §1.3.
+
+      Why it matters: a Web Push payload is opened by the service worker with
+      clients.openWindow(), and a bare path resolves against the worker's scope
+      rather than against your site. It happens to work while the app is the
+      only thing on that origin. And a path pasted into WhatsApp is not a link.
+
+      IN-APP NOTHING GOT SLOWER. The bell turns an absolute link back into a
+      path when it points at the site you are already on, so clicking one is
+      still a client-side navigation and not a full page load. A link pointing
+      somewhere else — production's bell read on a local build — is left alone
+      and opens as an ordinary link, which in that case is what it is.
+
+      ROWS WRITTEN BEFORE TODAY still hold bare paths. They work exactly as
+      they did.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 7.  DECISIONS YOU MIGHT WANT DIFFERENTLY
+───────────────────────────────────────────────────────────────────────────────
+
+ 7.1  A REP CAN NOW BILL A CONFIRMED ORDER
+
+      Granting invoices.create was necessary — the workflow has always allowed
+      Sales to move Confirmed → Invoiced, the endpoint just asked for a
+      permission nobody held. It is AFTER your confirmation, so it does not
+      step over any decision of yours.
+
+      What has NOT changed: the "raise the invoice too" switch on the new-order
+      screen is still ignored for a rep, because that one DID step over your
+      confirmation. One line in CreateOrder if you disagree.
+
+ 7.2  A CANCELLED OR HELD ORDER CANNOT BE BILLED, EVEN BY YOU
+
+      You may set any status in any direction — that is the point of the role
+      and it is unchanged. But moving a cancelled order to Invoiced is almost
+      always a misclick, and it would mint a real invoice number against goods
+      that were cancelled. Put it back on the chain first and the invoice
+      follows.
+
+ 7.3  THE STAFF FORM NO LONGER OFFERS "CUSTOMER" AS A ROLE
+
+      /admin/users listed all seven roles, including Customer, Supplier and
+      Customer & Supplier. Those are PARTY roles — a shop that buys from us —
+      and choosing one produced a staff account with an employee code and no
+      party behind it. The form now shows staff roles only. Nothing was
+      deleted; the roles are still there and /parties still uses them.
+
+ 7.4  DELETING AN INVOICED ORDER IS STILL REFUSED — even for you
+
+      It would leave an invoice pointing at nothing. Raise a sales return.
+
+ 7.5  THE ORDER DATE IS STILL NOT EDITABLE
+
+      Editing a quantity corrects a mistake. Moving the date an order was
+      placed rewrites history.
+
+ 7.6  THE WAREHOUSE STILL STARTS AT INVOICED, NOT AT CONFIRMED
+
+      Picking stock against an order the office has not billed is how goods
+      leave with no invoice behind them. One line in Services/OrderWorkflow.cs
+      — the Moves table — if you want the floor to start earlier.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 7A.  WHAT I RAN AGAINST THE LIVE DATABASE, AND ONE MISTAKE I MADE DOING IT
+───────────────────────────────────────────────────────────────────────────────
+
+ You said to run migration 18 in full and to invoice the six stranded orders,
+ so both are done. Here is exactly what happened, including the part that went
+ wrong.
+
+ MIGRATION 18 — applied, verified:
+   · Sales now holds invoices.view, invoices.create, returns.sales.
+   · LOC-01/LOC-02 renamed to "Karachi Warehouse" / "Karachi Order Department";
+     LOC-06 "Lahore Warehouse" and LOC-07 "Lahore Order Department" added.
+   · "SalesInvoice"."PdfDeliverable" and "Party"."CreatedByUserId" exist.
+     16 of 25 parties now name a creator, back-filled from the assigned rep.
+
+ THE SIX INVOICES — raised through the real endpoint, not by hand, so the
+ numbering, lines, PDF, activity log and notifications all went the normal way:
+
+     ORD-26-0140 -> INV-26-8888      ORD-26-0168 -> INV-26-8891
+     ORD-26-0141 -> INV-26-8889      ORD-26-0170 -> INV-26-8892
+     ORD-26-0143 -> INV-26-8890      ORD-26-0171 -> INV-26-8893
+
+ THE DATES ARE BETTER THAN I WARNED YOU. I said they would carry today's date.
+ They do not: RaiseInvoiceForOrder dates an invoice from the ORDER, so these
+ read 10 Aug, 13 Aug, 14 Aug, 15 Sep, 16 Sep and 16 Sep — the days the orders
+ were actually taken. Only the numbers came off today's series. All six PDFs
+ are on Cloudinary.
+
+ AND THE MISTAKE. Raising those invoices rewound five of the orders. Widening
+ the "Raise invoice" button to orders further down the chain exposed a line
+ that had been harmless while the button only ever appeared at CONFIRMED:
+ RaiseInvoiceForOrder set the status to INVOICED unconditionally. So
+
+     ORD-26-0140 Dispatched      ORD-26-0141 Dispatched
+     ORD-26-0143 To Order Dept   ORD-26-0168 Dispatched
+     ORD-26-0171 Delivered
+
+ all briefly said "Invoiced" instead. Every one has been put back, and each
+ carries an ORDER_STATUS_RESTORED row in the activity log saying what happened.
+ No figures, lines or invoices were touched by the restore.
+
+ The line is fixed: the status now moves FORWARD to Invoiced only. An order
+ already at or past that step keeps where it is. Checked afterwards against a
+ real dispatched order — billing it again answers with the existing bill,
+ mints nothing, and leaves it dispatched.
+
+ They were put back with SQL rather than through the status endpoint on
+ purpose. That endpoint announces every move, and telling you, Accounts and
+ the rep that ORD-26-0171 "has left" and then "reached the customer" all over
+ again would be four notifications about something that did not happen.
+
+ WHAT ELSE I CHECKED WHILE I WAS IN THERE. Every endpoint this work touched,
+ against live data, as three different people — you, a salesperson and the
+ warehouse keeper. All green. The keeper sees 3 orders in his queue rather than
+ the 6 that qualify company-wide, because 3 of them are on the other two
+ shelves; the rep sees 16 invoices of 34 and 3 returns of 7. The stock screen
+ reports Karachi 23,875 units and Lahore 0, which is right — the Lahore
+ locations were created an hour ago and nothing has been moved into them.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 7B.  TWO BITS OF DATA THAT ARE NOW VISIBLY ODD
+───────────────────────────────────────────────────────────────────────────────
+
+ 7B.1  MOST REPS WILL OPEN AN EMPTY CUSTOMERS SCREEN
+
+       Of 25 parties: 7 are assigned to Sara Khan, 5 to Bilal Ahmed, 4 to
+       Hassan Raza, and 9 to nobody at all. Zara Malik, Imran Iqbal and
+       Muhammad Ammar Kamran are assigned none.
+
+       Their Customers screen is therefore empty, and it is telling the truth —
+       they have not opened an account and none has been given to them. It will
+       fill up as they open accounts, because the creator is recorded from now
+       on.
+
+       If those nine unassigned accounts belong to somebody, set the Sales Rep
+       field on each and they will appear for that person immediately. Nothing
+       is lost meanwhile: the back office still sees all 25, and the customer
+       picker on the order form still offers every one of them to every rep.
+
+       BILAL AHMED IS ON THE ORDER DESK, not in sales, and five customers are
+       assigned to him. Harmless — the scoping only narrows the Sales role —
+       but it is probably not what anybody meant.
+
+ 7B.2  AHMED RIAZ IS AN ORDER-DESK CLERK POINTED AT A WAREHOUSE
+
+       His primary location is LOC-01, which is now "Karachi Warehouse". An
+       order-desk account should point at a department.
+
+       Nothing is broken today: the only screen that reads a person's place is
+       the warehouse queue, and that is gated on orders.warehouse, which he
+       does not hold. But he is the one existing account the new rule would
+       refuse, and the moment anything else starts reading that field he will
+       be looking at the wrong list.
+
+       Open him at /admin/users and pick "Karachi Order Department". The form
+       will now only offer departments, so it is two clicks.
+
+       He is NOT changed by migration 18 — that only fills in a primary
+       location where there was none, and his is set. Changing an existing
+       person's place is a decision about who works where.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 8.  THINGS I FOUND AND DID NOT CHANGE
+───────────────────────────────────────────────────────────────────────────────
+
+ 8.1  THE VAPID KEYS IN .env.example DO NOT MATCH THE SERVER
+
+      Still true, still one line, still not mine to change. See changa.txt §4.
+
+ 8.2  THE WAREHOUSE LOGIN PANEL
+
+      src/app/login/page.tsx lists four panels and no warehouse one. The panels
+      only fill in an e-mail address — typing it by hand signs the keeper in
+      just the same — and you asked me not to touch that code. Four lines in
+      the PANELS array whenever you want it.
+
+ 8.3  DEBUG console.log CALLS STILL IN THE CODE
+
+        vizo-erp/src/app/login/page.tsx                   ~114
+        .../super-admin/super-admin-dashboard.tsx         ~119
+
+      The one at sales/orders/[id]/page.tsx is gone, because that function was
+      rewritten. These two were not touched.
+
+ 8.4  DOCUMENT NUMBERING IS STILL NOT ATOMIC
+
+      NextNumber reads and increments in two statements. Two documents created
+      in the same instant can take the same number. The proper fix is one
+      PostgreSQL sequence per series — a schema change, written up in
+      db_code_changes.txt §3.1 rather than faked.
+
+ 8.5  THE OLD STATUSES PROCESSING (90) AND PACKED (91)
+
+      Still in "OrderStatus". Nothing in the chain uses them, old orders still
+      point at them, and removing them would break history. They appear in no
+      dropdown.
+
+
+───────────────────────────────────────────────────────────────────────────────
+ 9.  WHERE THE NEW THINGS LIVE
+───────────────────────────────────────────────────────────────────────────────
+
+ BACKEND
+
+   Services/AppLinks.cs               the website address, in one place
+   Documents/DocumentLinks.cs         the signed document link, in one place
+   Models/SalesInvoice.Custom.cs      PdfDeliverable
+   Models/Party.Custom.cs             CreatedByUserId
+   Documents/DocumentBuilder.cs       the "sales-return" credit note
+   SalesController                    EnsureBill, BillViewUrl, ReturnNoteUrl,
+                                      MyPlaceId; the invoice raised on the
+                                      Invoiced step
+   AdminUsersController               ValidatePlace — one warehouse, one desk
+   AdminDashboardController           the sales-returns figures
+   InventoryController                stock levels by city
+
+ FRONTEND
+
+   lib/app-url.ts                     absolute link → in-app path
+   lib/documents.ts   viewableUrl()   which of the two links to open
+   components/portals/super-admin/super-admin-dashboard.tsx
+                                      the red sales-returns column
+   app/(app)/inventory/stock-levels/  the city picker
+   app/(app)/admin/users/new/         "which warehouse"
+   app/(app)/sales/returns/           the return note, and the order it came off
+
+ DATABASE
+
+   database/18_sales_scope_returns_and_places.sql    RUN, 17 Sep — see 7A
+   database/19_product_pricing.sql                   section 1 RUN, 20 Sep;
+                                                     section 2 (drop) is yours
+   database/changa.txt                               what is still yours to do
+
+ PRODUCT WORK, 20 SEP
+
+   Services/SkuGenerator.cs                  the SKU rules
+   Controllers/ProductHistoryController.cs   movements, history, ledger, export
+   Controllers/InventoryController.cs        sku-preview, barcodes/lookup,
+                                             duplicate check, pricing
+   Documents/XlsxWriter.cs                   now several sheets per workbook
+   vizo-erp/src/lib/pricing.ts               the price arithmetic
+   vizo-erp/src/lib/dates.ts                 today, and the no-past-date rule
+   vizo-erp/src/components/ui/date-input.tsx
+   vizo-erp/src/components/inventory/        scanner, barcode fields, pricing
+                                             fields, movement cards, timeline
+   app/(app)/inventory/products/[id]/movements/[movementId]/
+   app/(app)/inventory/products/[id]/history/
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ ONE FILE LEAVES YOUR WORKING COPY — 20 SEP
+═══════════════════════════════════════════════════════════════════════════════
+
+ vizo-backend/appsettings.Development.json IS NO LONGER IN THE REPOSITORY.
+
+ It was tracked, but .gitignore has listed it as "local overrides only" for a
+ while -- git had simply carried on tracking what it already tracked. It is
+ untracked now (git rm --cached; the file itself was not deleted here).
+
+ WHAT THIS MEANS FOR YOU: git will remove it from your working copy on your
+ next pull. It only held the two default logging levels, so nothing is lost
+ unless you had put your own settings in it. IF YOU DID, COPY IT SOMEWHERE
+ FIRST. It will then be yours alone and no pull will touch it again.
+
+ WHY: the document reader needs a Google API key, and GitHub's secret scanning
+ refuses any push that carries one -- the push was blocked outright. The owner
+ asked for it to be gitignored rather than committed. So the key sits in that
+ local file here, appsettings.json carries an empty Gemini:ApiKey, and on
+ Railway it is the environment variable Gemini__ApiKey.
+
+ With no key the reader is simply off: GET /api/parties/documents/reader
+ answers configured:false and the new-customer screen asks for the details to
+ be typed in. Photographs still upload and customers still save.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ 21 SEP, LATER — WHAT TESTING FOUND, AND WHAT WAS DONE ABOUT IT
+═══════════════════════════════════════════════════════════════════════════════
+
+ Three things were broken and are fixed; the rest is for you to know.
+
+ 1. EVERY AI REPORT WENT SILENT THE FIRST TIME GEMINI SAID "BUSY".
+    Services/GeminiClient.ExplainAsync -- behind the sales-drop explanation, who
+    to chase for money, dead stock, customers at risk, the demand forecast, margin
+    watch, the month-end summary, "ask a question" and the nightly insight -- made
+    ONE attempt on ONE model. The retry-and-fall-back-to-the-next-model loop had
+    been written for the document reader only, last time. So when
+    gemini-flash-latest answered 429 or 503, every report came back with
+    aiAvailable:true and explanation:null in half a second, and no error anywhere.
+    Found by running all of them in a row. The loop is now ONE private method
+    (PostAsync) used by both, and a 429 (out of quota) moves straight to the next
+    model instead of waiting a second on one that will not answer until tomorrow.
+    The nightly insight goes through the same method; it runs at its own hour, so
+    it was proved by sharing the code path rather than by watching it run.
+
+ 2. THE CUSTOMER SCREEN NEVER RECEIVED THE CUSTOMER'S DOCUMENTS.
+    PartiesController.Get built a "documents" block (the six picture links and the
+    PDF) and then left it out of the object it returned. So the "Legal documents"
+    button on the customer's screen never appeared for anybody, and the edit
+    screen showed six empty tiles for a customer who had six pictures on file. The
+    PDF itself was fine and the database held every link -- the last hop dropped
+    them. One word. Both now work; checked against a real customer.
+
+ 3. THE CUSTOMER'S SCREEN HEADED WITH THE LEGAL NAME.
+    Your rule was that the Display Name is what the whole project shows. The
+    customer's own page still led with the legal name. It leads with the display
+    name now, and the legal name sits under it when it differs.
+
+ THE FRONT / BACK CHECK, and how far it goes:
+
+    Three layers, cheapest first, because each catches what the one before cannot.
+      a) In the browser, before anything is uploaded: a fingerprint of the picture
+         (lib/image-hash.ts) compared with the other side. The SAME FILE, and a
+         second photograph of the same face, are refused with "the front and back
+         pictures are very much the same". Nothing is uploaded for a refused one.
+      b) On the API, for byte-identical files: no AI call is spent on it.
+      c) On the API, by the AI: it reads WHICH face of the CNIC each picture is
+         (photograph and name = front; address and barcode = back), and refuses a
+         picture in the wrong slot -- including the sides swapped.
+    The AI is told the pictures by neutral names, "cnicPictureOne" and "Two". It
+    used to be told "cnicFront" and "cnicBack" and simply believed the labels, so
+    swapped sides sailed through. That was found by testing exactly that case.
+
+    THE THRESHOLDS WERE MEASURED, NOT GUESSED, and are different per document
+    (lib/image-hash.ts explains the figures). The reason to know: two different
+    pages of a typed affidavit are already only 10 bits of 64 apart, so a single
+    strict number would have refused a perfectly good page 2. The affidavit is
+    only caught if it is the same file (or very nearly); the CNIC is caught at 15.
+
+ SMALLER THINGS:
+
+    - A section of the customer papers is now complete once ANY side is in. It
+      needed every side, which contradicted the card's own hint ("skip it if it is
+      blank") and your brief that partial sets are fine.
+    - The reader now defaults the category to RETAILER unless the card says
+      wholesale WITHOUT also saying retail. A card reading "Wholesale & Retail" had
+      been coming back Wholesaler.
+    - On the order screen a product with NO cost keeps its catalogue price and is
+      not margin-capped. There is one such product. Give it a cost and it is.
+
+ STILL YOURS TO KNOW, NOT CHANGED:
+
+    - The tax box is still there on Sale Invoices (new), Counter Sale and the order
+      EDIT screen, and the staff can type 18 into it. Tax now STARTS at 0 because
+      the products say 0; nothing stops a person typing a rate. You asked for the
+      default, so that is what changed.
+    - Only 3 of 36 active products have a picture. See changa.txt D6.
+    - The purchases screens (still there, for you and the accountant) link each
+      product to its Item screen. Untouched: the order desk cannot reach them.
+    - GET /inventory/categories and /brands answer 403 to the Accountant and the
+      Warehouse Keeper now. Their menus never showed either.
+    - The two test PDFs and 46 test pictures were deleted from Cloudinary. Thirteen
+      OTHER pictures in advpos/images/customer-documents (business_front_*,
+      cnic-front_* and so on) are not mine and were left alone.
+
+═══════════════════════════════════════════════════════════════════════════════
+ 22 SEP, LATER — WAREHOUSE ROLE AND PURCHASE RETURNS REMOVED: WHAT ELSE MOVED
+═══════════════════════════════════════════════════════════════════════════════
+
+ Two mechanical fixes that fell out of the removal itself, not asked for:
+
+ 1. TWO MOCK DATA FILES WOULD NOT COMPILE ONCE THE ROLE WAS GONE.
+    data/mock.ts's demoUsers and data/settings.ts's rolePermissions are both
+    typed Record<RoleKey, ...>, so removing "warehouse-keeper" from the RoleKey
+    union broke both at compile time. Neither is read by a live screen (checked:
+    only shortcut-sheet.tsx and order-delivery-card.tsx import from
+    data/settings.ts, and neither touches roles or permissions) -- they are
+    legacy demo/reference data, per AGENTS.md's own description of that file.
+    Both had their warehouse-keeper entry deleted so the build passes; nothing
+    else in either file was touched.
+
+ 2. A DEAD PERMISSION-CATALOGUE ROW. data/settings.ts also listed
+    "orders.warehouse" in a decorative permissionCatalog array that nothing
+    imports. Removed alongside the permission itself for consistency, same
+    reasoning as above.
+
+ WHAT WAS DELIBERATELY LEFT ALONE:
+
+    - backend/database/02_seed.sql and 15_order_workflow.sql still show the
+      role being created. They are historical record of what was actually run
+      and are never re-applied -- migration 24 is the record of what undid it.
+    - PurchaseReturn / PurchaseReturnItem models, AppDbContext's mapping of
+      them, and everywhere they are READ (ProductHistoryController's stock
+      ledger, DocumentBuilder's PDF, NotificationKinds.PurchaseReturn) are
+      untouched. See changa.txt E2 for why: nine real historical returns exist
+      and dropping that would touch real accounting history, which is the
+      owner's call, not a side effect of a role/panel removal.
+    - AppDbContext.cs itself (Talha's file, by the standing rule) was not
+      opened at all for either change -- neither removal needed a DbSet or a
+      Fluent mapping touched.
+
+═══════════════════════════════════════════════════════════════════════════════
+ 23 SEP, LATER — PACKING SCREEN: WHAT WAS BUILT ON RATHER THAN REPLACED
+═══════════════════════════════════════════════════════════════════════════════
+
+ Two things worth flagging about how the dispatch action itself changed.
+
+ 1. INVOICED -> DISPATCHED IS NOW A DIRECT MOVE for the order desk and the
+    accountant (OrderWorkflow.Moves), where it used to require the
+    Invoiced -> AtOrderDept step first. The Packing screen's flow has no
+    "I am now working on this" click in the middle, and asking for one would
+    only be a screen nobody presses before doing the real thing. AtOrderDept
+    is still a legal status an order can sit at and the order detail page's
+    dropdown still offers it -- nothing that already used it breaks. The one
+    side effect: with two legal next moves from Invoiced (AtOrderDept and
+    Dispatched), OrderWorkflow.NextFor no longer offers a single one-click
+    "next step" button on the order detail page for that transition; the
+    dropdown still has both. The Packing screen is the intended way to reach
+    Dispatched now, and the one-click button was never built for it.
+
+ 2. THE INVOICE PDF'S OLD FILE IS NOW DESTROYED ON A DISPATCH REBUILD
+    (PdfStore.DestroyAsync), which is the ONE exception to a rule stated
+    plainly elsewhere in this codebase: DocumentArchive never deletes an old
+    file, because a link somebody was already sent must keep working. This
+    is safe here specifically because nobody would have been sent the PRE-
+    dispatch link on its own -- it only ever travelled attached to the
+    invoice row it replaces, and the row is updated in the same breath. If a
+    future document kind ever wants the same treatment, read that reasoning
+    in PdfStore.cs first; it is not the default for a reason.
+
+ SMALLER THINGS:
+
+    - "Sales Drop-down: names of all individuals assigned to the sales role"
+      is read literally: a ready order's credited SalesPersonUserId is
+      usually a rep but not always (an order keyed in on somebody's behalf
+      still carries who typed it in) -- found live, two of your current ready
+      orders are credited to the Super Admin and one to an order-dept clerk.
+      Those orders still show up in the Order box and their customer still
+      appears in the Customer box; only the Salesperson box itself is
+      narrowed to genuine sales-role people.
+    - A shop can have ready orders from more than one rep at once (Cellular
+      World KHI does, right now, from two). Picking that customer first
+      leaves the salesperson box open rather than guessing -- the order list
+      still shows every one of that customer's ready orders regardless of
+      who wrote them.
+    - The "dedicated tracking page" the request asked for is /delivery,
+      unchanged -- it already lists every dispatch by status, including the
+      one this screen's courier step just booked. A second, separate page
+      would only ever say the same thing from a different query and drift
+      from it over time. "Delivered" is that same page with the status
+      pre-set in the URL.
