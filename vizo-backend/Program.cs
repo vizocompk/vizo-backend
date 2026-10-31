@@ -81,6 +81,9 @@ builder.Services.AddSignalR();
 /* Chases the Super Admin every six hours about orders still sitting at
    SUBMITTED. See Services/ConfirmReminderService.cs. */
 builder.Services.AddHostedService<vizo_backend.Services.ConfirmReminderService>();
+/* A rep holding collected money that accounts has not confirmed is reminded to
+   hand it in. See Services/CollectionReminderService.cs. */
+builder.Services.AddHostedService<vizo_backend.Services.CollectionReminderService>();
 
 /* ─────────────────────────── Controllers ───────────────────────── */
 builder.Services.AddControllers()

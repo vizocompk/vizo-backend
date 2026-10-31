@@ -806,6 +806,18 @@ public partial class AccountingController : ApiControllerBase
                 if (c.Note.Length > 300) c.Note = c.Note[..300];
             }
 
+            /* THE ACCOUNT IT WENT INTO (the owner, 1 Nov): the accountant picks
+               Cash on Hand, Meezan, Faysal ... from the chart's Cash & Bank
+               accounts, and the receipt is posted there. Without one, the
+               collection posts through its method's account as before. */
+            if (body?.DepositAccountId is int depositId)
+            {
+                var ok = await _db.Accounts.AnyAsync(a => a.AccountId == depositId && a.IsActive && !a.IsGroup
+                                                          && a.AccountType.TypeName == "Cash & Bank");
+                if (!ok) return BadRequest(new { message = "Pick a Cash & Bank account the money went into." });
+                c.DepositAccountId = depositId;
+            }
+
             var confirmed = await _db.CollectionStatuses.FirstOrDefaultAsync(s => s.StatusKey == "CONFIRMED");
             if (confirmed is null) return BadRequest(new { message = "No CONFIRMED status is configured." });
 
@@ -839,7 +851,7 @@ public partial class AccountingController : ApiControllerBase
                 NotificationKinds.CollectionConfirmed,
                 $"Collection confirmed by {CurrentUserName()}",
                 $"{c.ReceiptNo} -- PKR {c.Amount:N0} has been confirmed.",
-                url: "/accounting/collections",
+                url: "/sales/collections",
                 exceptUserId: CurrentUserId(),
                 alsoUserIds: new[] { c.CollectedByUserId });
 
@@ -892,7 +904,6 @@ public partial class AccountingController : ApiControllerBase
                     paidFromAccount = e.PaidFromAccount.AccountName,
                     amount = e.Amount,
                     vendorName = e.VendorName,
-                    paymentMethod = e.Method.MethodKey,
                     description = e.Description,
                     status = e.Status.StatusKey,
                     statusName = e.Status.StatusName,
@@ -958,7 +969,6 @@ public partial class AccountingController : ApiControllerBase
                     paidFromAccount = x.PaidFromAccount.AccountName,
                     amount = x.Amount,
                     vendorName = x.VendorName,
-                    paymentMethod = x.Method.MethodKey,
                     description = x.Description,
                     status = x.Status.StatusKey,
                     statusName = x.Status.StatusName,
@@ -1742,7 +1752,7 @@ public partial class AccountingController : ApiControllerBase
     public record ExpenseRequest(
         DateOnly? ExpenseDate, int LocationId, string? CategoryName,
         int ExpenseAccountId, int PaidFromAccountId, decimal Amount,
-        string VendorName, int MethodId, string? Description);
+        string VendorName, string? Description);
 
     // ══════════════════════════════════════════════════════════════════
     //  CREATE  --  voucher
@@ -2073,7 +2083,6 @@ public partial class AccountingController : ApiControllerBase
                 new XlsxWriter.Column("Location", "location", XlsxWriter.CellKind.Text, 18),
                 new XlsxWriter.Column("Expense Account", "expenseAccount", XlsxWriter.CellKind.Text, 26),
                 new XlsxWriter.Column("Paid From", "paidFromAccount", XlsxWriter.CellKind.Text, 22),
-                new XlsxWriter.Column("Paid Via", "paymentMethod"),
                 new XlsxWriter.Column("Amount", "amount", XlsxWriter.CellKind.Money),
                 new XlsxWriter.Column("Status", "statusName"),
                 new XlsxWriter.Column("Entry No", "entryNo", XlsxWriter.CellKind.Text, 16),
@@ -2172,7 +2181,7 @@ public partial class AccountingController : ApiControllerBase
     public record VoucherAllocationRequest(int? SalesInvoiceId, int? PurchaseInvoiceId, decimal Amount);
 
     /// <summary>Optional: confirm less than the rep recorded, and/or add a note.</summary>
-    public record ConfirmCollectionRequest(decimal? Amount, string? Note);
+    public record ConfirmCollectionRequest(decimal? Amount, string? Note, int? DepositAccountId = null);
 
     public record MatchLineRequest(int StatementLineId, int? JournalEntryLineId);
 
@@ -2658,7 +2667,6 @@ public partial class AccountingController : ApiControllerBase
             e.PaidFromAccountId = body.PaidFromAccountId;
             e.Amount = body.Amount;
             e.VendorName = body.VendorName.Trim();
-            e.MethodId = body.MethodId;
             e.Description = body.Description?.Trim();
 
             await _db.SaveChangesAsync();
@@ -2991,8 +2999,6 @@ public partial class AccountingController : ApiControllerBase
         if (string.IsNullOrWhiteSpace(body.VendorName)) return "Who was paid?";
         if (!await _db.Locations.AnyAsync(l => l.LocationId == body.LocationId))
             return "Pick a valid location.";
-        if (!await _db.PaymentMethods.AnyAsync(m => m.MethodId == body.MethodId))
-            return "Pick a valid payment method.";
         /* Not merely "a real account" -- the RIGHT KIND of account. Nothing
            stopped an expense being booked against Owner Capital before this,
            and the resulting entry balanced perfectly while saying something

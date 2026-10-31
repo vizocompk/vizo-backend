@@ -871,7 +871,6 @@ public static class DocumentBuilder
             {
                 e.ExpenseNo, e.ExpenseDate, e.CategoryName, e.Amount, e.VendorName, e.Description,
                 status = e.Status.StatusName,
-                method = e.Method.MethodName,
                 location = e.Location.LocationName,
                 expenseAccount = e.ExpenseAccount.AccountName,
                 expenseCode = e.ExpenseAccount.AccountCode,
@@ -895,7 +894,6 @@ public static class DocumentBuilder
             {
                 new DocumentPdf.Fact("Date", DocumentPdf.Day(x.ExpenseDate)),
                 new DocumentPdf.Fact("Category", x.CategoryName),
-                new DocumentPdf.Fact("Method", x.method),
                 new DocumentPdf.Fact("Location", x.location),
             },
             Columns: new[]
@@ -910,7 +908,7 @@ public static class DocumentBuilder
                     new[] { x.expenseAccount, x.Description ?? x.CategoryName, DocumentPdf.Money(x.Amount) },
                     Sub: $"DR {x.expenseCode}"),
                 new DocumentPdf.Row(
-                    new[] { x.paidFrom, $"Paid by {x.method}", $"({DocumentPdf.Money(x.Amount)})" },
+                    new[] { x.paidFrom, "Paid from", $"({DocumentPdf.Money(x.Amount)})" },
                     Sub: $"CR {x.paidFromCode}"),
             },
             Totals: new[]

@@ -841,10 +841,6 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.LocationId)
                 .HasConstraintName("fk_expense_location");
 
-            entity.HasOne(d => d.Method).WithMany(p => p.Expenses)
-                .HasForeignKey(d => d.MethodId)
-                .HasConstraintName("fk_expense_method");
-
             entity.HasOne(d => d.PaidFromAccount).WithMany(p => p.ExpensePaidFromAccounts)
                 .HasForeignKey(d => d.PaidFromAccountId)
                 .HasConstraintName("fk_expense_paidfrom");

@@ -17,7 +17,6 @@ public partial class PaymentMethod
 
     public virtual ICollection<Collection> Collections { get; set; } = new List<Collection>();
 
-    public virtual ICollection<Expense> Expenses { get; set; } = new List<Expense>();
 
     public virtual ICollection<PurchaseInvoice> PurchaseInvoices { get; set; } = new List<PurchaseInvoice>();
 
