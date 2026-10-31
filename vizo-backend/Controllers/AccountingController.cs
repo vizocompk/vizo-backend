@@ -49,6 +49,13 @@ public partial class AccountingController : ApiControllerBase
        policy already limits callers to these two roles. */
     private bool SeesPayments() => CurrentRole() is "super-admin" or "accountant";
 
+    /* THE JOURNAL FOLLOWS THE VOUCHERS. On 22 Oct the owner hid journal
+       entries from the accountant along with JV vouchers; since 27 Oct the
+       accountant does every voucher type, JV included, so the eight
+       journal-entry actions ask SeesPayments() too -- which now lets both the
+       Super Admin and the accountant through, and anybody else is refused. */
+    private const string JournalsOwnerOnly = "Journal entries are for the Super Admin and the accountant.";
+
     private const string ReceiptsOnly =
         "Payment and journal vouchers are the Super Admin's. Accounts records receipts only.";
 
@@ -237,6 +244,7 @@ public partial class AccountingController : ApiControllerBase
     {
         try
         {
+            if (!SeesPayments()) return StatusCode(403, new { message = JournalsOwnerOnly });
             if (page < 1) page = 1;
             if (pageSize is < 1 or > 200) pageSize = 50;
 
@@ -316,6 +324,7 @@ public partial class AccountingController : ApiControllerBase
     {
         try
         {
+            if (!SeesPayments()) return StatusCode(403, new { message = JournalsOwnerOnly });
             var e = await _db.JournalEntries.AsNoTracking()
                 .Where(x => x.EntryId == id)
                 .Select(x => new
@@ -385,6 +394,7 @@ public partial class AccountingController : ApiControllerBase
     {
         try
         {
+            if (!SeesPayments()) return StatusCode(403, new { message = JournalsOwnerOnly });
             if (body.Lines is null || body.Lines.Count < 2)
                 return BadRequest(new { message = "A journal entry needs at least two lines." });
 
@@ -502,6 +512,7 @@ public partial class AccountingController : ApiControllerBase
     {
         try
         {
+            if (!SeesPayments()) return StatusCode(403, new { message = JournalsOwnerOnly });
             var entry = await _db.JournalEntries
                 .Include(e => e.JournalEntryLines)
                 .Include(e => e.Status)
@@ -2107,6 +2118,7 @@ public partial class AccountingController : ApiControllerBase
     {
         try
         {
+            if (!SeesPayments()) return StatusCode(403, new { message = JournalsOwnerOnly });
             var action = await GetJournalEntries(q, status, from, to, 1, 5000);
             if (action is not OkObjectResult ok || ok.Value is null) return action;
 
@@ -3038,6 +3050,7 @@ public partial class AccountingController : ApiControllerBase
     {
         try
         {
+            if (!SeesPayments()) return StatusCode(403, new { message = JournalsOwnerOnly });
             var entry = await _db.JournalEntries
                 .Include(e => e.JournalEntryLines)
                 .Include(e => e.Status)
@@ -3130,6 +3143,7 @@ public partial class AccountingController : ApiControllerBase
     {
         try
         {
+            if (!SeesPayments()) return StatusCode(403, new { message = JournalsOwnerOnly });
             var entry = await _db.JournalEntries
                 .Include(e => e.JournalEntryLines)
                 .Include(e => e.Status)
@@ -3188,6 +3202,7 @@ public partial class AccountingController : ApiControllerBase
     {
         try
         {
+            if (!SeesPayments()) return StatusCode(403, new { message = JournalsOwnerOnly });
             var entry = await _db.JournalEntries
                 .Include(e => e.JournalEntryLines)
                 .Include(e => e.Status)
